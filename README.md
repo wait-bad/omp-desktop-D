@@ -1,330 +1,140 @@
-# Oh My Pi Desktop
+# Oh My Pi Desktop (omp-desktop-D)
 
-A Tauri 2 desktop shell for [oh-my-pi](https://github.com/can1357/oh-my-pi) (`omp`).
-Wraps the `omp --mode rpc` coding agent as a managed child process and serves the
-React UI as a connected, live interface — no browser, no Electron, ~8 MB binary.
-
-## Features
-
-**Chat & sessions**
-- Per-tab session isolation — each tab owns its own `omp --mode rpc` process
-- Full session snapshots: switch tabs, state is preserved including in-flight streams
-- `/new` command starts a fresh session (history kept on disk)
-- Model picker with two-view command bridge; cycle or pick directly from the status bar
-- Thinking-level control: cycle through `off / minimal / low / medium / high / xhigh` (per-model — omp picks the supported subset)
-- Streaming token display with tokens/sec sparkline and context-window gauge
-
-**Plan mode**
-- Activates a draft-before-write workflow entirely in the chat window
-- First message is wrapped in an intent framing prompt; subsequent sends steer the plan
-- Inline plan annotations: click any paragraph to leave a comment before approving
-- Approve button sends all annotations as a single feedback prompt and opens the kanban
-- Kanban panel auto-populates from the agent's `todo_write` tool calls (running / done)
-
-**Tool cards**
-- Live streaming output for `eval` (JS/Python kernel) and `bash` tool calls
-- Syntax-highlighted code blocks (highlight.js, atom-one-dark) once a cell completes
-- Scrubbable unified diff viewer for `edit` calls with animated line reveal
-- Search preview, read summary, task board for the respective tools
-- Distinct icon + color per tool type: read, search, edit, bash, eval, task, debug, ask
-
-**Minimap**
-- Dense cell grid (one cell per message) replacing the old bar stack — fits 200+ messages
-- Token heatmap: assistant cells brightness log-scaled by tokens used
-- Hover a cell → corresponding chat bubble highlights with an accent ring
-- Click a cell → chat scrolls smoothly to that message
-- Tooltip shows role, token count (in/out), tool name, duration, or message preview
-
-**Native shell**
-- Tauri 2, Rust backend, no Electron, no CDN dependencies
-- Frameless window with custom traffic-light / drag region on Windows and macOS
-- Native folder picker for opening projects
-- Strict CSP; asset protocol disabled; no shell plugin surface
-
-![Chat](screenshots/1.jpg)
-![Tools](screenshots/2.jpg)
-![Minimap](screenshots/3.jpg)
+基于 Tauri 2 构建的 [oh-my-pi](https://github.com/can1357/oh-my-pi) (`omp`) 跨平台轻量桌面端外壳。
 
 ---
 
-## Architecture
+## 致谢与声明 (Credits & Acknowledgements)
 
-```
-┌─────────────────────────────────────────────────────┐
-│  Tauri WebView  (src/)                              │
-│                                                     │
-│  app-live.jsx ──► OMP_BRIDGE ──► live.js            │
-│       │                │                            │
-│  React state    RPC event handlers                  │
-│  (messages,     (turn, message, tool,               │
-│   model, ctx,    extension_ui, sparkline)           │
-│   kanban…)             │                            │
-│                  adapter.js (pure transforms)       │
-└────────────────────────┬────────────────────────────┘
-                         │  Tauri IPC (invoke / events)
-┌────────────────────────▼────────────────────────────┐
-│  Rust  (src-tauri/src/)                             │
-│                                                     │
-│  AgentBridge                                        │
-│    spawn  omp --mode rpc                            │
-│    stdin  ◄── send_command (JSON lines)             │
-│    stdout ──► agent://line events (JSON lines)      │
-│    kill   on drop / stop_session / hot-reload         │
-└────────────────────────┬────────────────────────────┘
-                         │  stdin / stdout pipes
-┌────────────────────────▼────────────────────────────┐
-│  omp  (oh-my-pi coding agent)                       │
-│    JSON-line RPC protocol                           │
-│    streams AgentSessionEvents to stdout             │
-└─────────────────────────────────────────────────────┘
-```
+本项目基于原作者优秀的开源项目 **[apoc/omp-desktop](https://github.com/apoc/omp-desktop)** 进行二次开发与增强。
+
+非常感谢原开源作者 **[apoc](https://github.com/apoc)**（以及贡献者 Miroslav Drbal 等）为社区构建的优雅、纯粹且高性能的轻量级 Tauri 架构！
+同时也感谢底层强大编码智能体 **[oh-my-pi](https://github.com/can1357/oh-my-pi)** 作者 [@can1357](https://github.com/can1357) 的卓越工作。
+
+本衍生分支（**omp-desktop-D**）在此基础上持续进行体验优化、功能扩展与本地化完善。
 
 ---
 
-## Requirements
+## 核心功能特性 (Features)
 
-| Tool | Version |
+### 1. 对话与多会话管理 (Chat & Sessions)
+- **多标签会话隔离**：每个标签页独立管理自己的 `omp --mode rpc` 后台子进程，互不冲突。
+- **状态持久化与快照切换**：在不同标签页之间丝滑切换，流式生成中的输出与上下文状态均被完整保留。
+- **全新会话指令**：支持 `/new` 指令一键开启全新会话，历史会话安全保存在磁盘中。
+- **模型与快捷指令面板**：支持通过快捷键呼出两级视图命令桥（Command Bridge），支持在状态栏直接轮换或选取不同模型。
+- **思考等级调节**：支持便捷切换模型的思考层级（`off / minimal / low / medium / high / xhigh`）。
+- **实时指标感知**：配备流式输出实时 Token 速率仪表盘（Tokens/sec Sparkline）与上下文窗口占用率指示条。
+
+### 2. 计划与看板模式 (Plan Mode & Kanban)
+- **草稿先行工作流**：在对话窗口中即可激活先拟定计划、确认后再执行的 Draft-before-write 流程。
+- **意图引导提示**：第一条消息自动注入意图结构化框架，后续回复持续引导计划生成。
+- **行内交互式批注**：计划中的每个段落均支持点击添加批注，确认前可全面 Review。
+- **一键批准与联动**：点击批准按钮会将所有批注整合成单条反馈发送，并同步激活任务看板。
+- **智能看板联动**：根据 Agent 发起的 `todo_write` 工具调用，自动生成任务进度看板（运行中 / 已完成）。
+
+### 3. 工具执行卡片 (Tool Cards)
+- **实时流式反馈**：对 `eval`（JS/Python 执行内核）与 `bash` 系统命令行调用提供无延迟的流式输出展示。
+- **语法高亮展现**：代码单元执行完毕后，通过 highlight.js（atom-one-dark 主题）进行高质感代码高亮。
+- **交互式 Diff 查看器**：针对 `edit` 代码修改工具，提供类似 IDE 的平滑动画与逐行统一 Diff 对比视图。
+- **专用工具卡片支持**：涵盖搜索预览（Search）、读取摘要（Read）、子任务板（Task）、交互询问（Ask）等多种专用工具卡片。
+- **鲜明的工具色彩体系**：为每种工具定义了专属的视觉图标与主题配色。
+
+### 4. 密集会话小地图 (Session Minimap)
+- **信息密集型网格**：采用高密度网格设计（单个单元格代表一条消息），可轻松容纳 200+ 条超长多轮对话。
+- **Token 消耗热力图**：Assistant 单元格依据所消耗的 Token 数量按对数（Log）平滑缩放亮度，高开销回合一目了然。
+- **悬停高亮定位**：鼠标悬停任意格子，聊天主窗口对应的对话气泡会以光环高亮。
+- **一键平滑跳转**：点击任意格子，聊天窗口自动平滑滚动定位到对应消息。
+- **丰富悬浮提示（Tooltip）**：悬停即可查看消息角色、输入/输出 Token 明细、工具耗时及内容预览。
+
+### 5. 原生极轻桌面底座 (Native Shell)
+- **极小资源占用**：基于 Tauri 2 + Rust 后端构建，彻底抛弃 Electron，整包体积约 8 MB 级。
+- **零外部 CDN 依赖**：前端 React 18、ReactDOM、Babel、Marked 等均本地化内嵌，完全支持离线运行。
+- **精致无边框窗口**：支持 Windows 与 macOS 风格的无边框红绿灯窗口控制栏与拖拽交互。
+- **原生文件选择**：原生级系统目录挑选器，用于打开工作区项目。
+- **严苛的安全沙箱**：配置严格的内容安全策略（CSP），隔离不必要的外部风险。
+
+### 6. 个性化与微调面板 (Tweaks & Customization)
+- **多套预设主题**：Aurora（极光）、Phosphor（荧光绿）、Daylight（明亮）等精美配色。
+- **布局与密度调节**：支持舒适（Cozy）、紧凑（Compact）、高密（Dense）三种 UI 密度。
+- **自适应与自定义重音色**：提供多种预设重音色彩及自定义色板选择。
+- **外观与形象定制**：支持调整字体、头像自定义显示、背景等细节。
+
+---
+
+## 系统环境要求 (Requirements)
+
+| 工具 / 环境 | 推荐版本 |
 |------|---------|
-| [Rust](https://rustup.rs/) | stable (1.77+) |
+| [Rust](https://rustup.rs/) | 稳定版 stable (1.77+) |
 | [Node.js](https://nodejs.org/) | 18+ |
-| [Tauri CLI](https://tauri.app/start/prerequisites/) | 2.x (`npm install`) |
-| [oh-my-pi](https://github.com/can1357/oh-my-pi) | 14.8+ (`omp` in PATH) |
+| [Tauri CLI](https://tauri.app/start/prerequisites/) | 2.x |
+| [oh-my-pi](https://github.com/can1357/oh-my-pi) | 14.8+（需将 `omp` 保持在环境变量 PATH 中） |
 
-`omp` must be reachable as `omp` on your `PATH`. On Windows it is typically
-installed at `%LOCALAPPDATA%\omp\omp.exe` and added to PATH by the installer.
+> **提示**：确保终端可以全局执行 `omp` 命令。在 Windows 环境下，`omp.exe` 常见安装路径为 `%LOCALAPPDATA%\omp\omp.exe`。
 
 ---
 
-## Getting Started
+## 本地快速开始 (Getting Started)
 
 ```bash
-# Clone
-git clone https://github.com/yourname/omp-desktop
-cd omp-desktop
+# 1. 克隆代码仓库
+git clone https://github.com/wait-bad/omp-desktop-D.git
+cd omp-desktop-D
 
-# Install Tauri CLI (dev dependency only)
+# 2. 安装前端开发依赖
 npm install
 
-# Dev mode — hot-reloads frontend, rebuilds Rust on backend changes
+# 3. 启动本地开发模式（支持热重载，自动编译 Rust 后端并唤起客户端）
 npm run dev
 
-# Production build
+# 4. 构建生产安装包
 npm run build
 ```
 
-Dev mode auto-opens the WebView DevTools in debug builds.
-
 ---
 
-## Project Structure
+## 项目工程结构 (Project Structure)
 
-```
-omp-desktop/
-├── src/                        # Frontend (served by Tauri asset server)
-│   ├── index.html              # Entry point — declares script load order
-│   ├── app-live.jsx            # React root: state + handlers + render
-│   ├── live.js                 # Tauri IPC bridge + OMP_BRIDGE + OMP_DATA
-│   ├── adapter.js              # Pure RPC→UI data transforms (no side effects)
-│   ├── model-names.js          # Model ID → display name lookup table
-│   ├── platform.css            # Tauri-native overrides (no padding/shadow/radius)
-│   ├── react.development.js    # React 18 (local, no CDN)
-│   ├── react-dom.development.js
-│   ├── babel.min.js            # @babel/standalone for JSX transform
-│   ├── marked.min.js           # Markdown renderer
-│   ├── highlight.min.js        # Syntax highlighting (atom-one-dark theme)
-│   ├── highlight-theme.css
+```text
+omp-desktop-D/
+├── src/                        # 前端界面（由 Tauri 本地静态服务承载）
+│   ├── index.html              # 应用主入口
+│   ├── app-live.jsx            # React 根组件（状态流转、指令派发与视图装配）
+│   ├── live.js                 # Tauri IPC 通信桥梁（封装 OMP_BRIDGE）
+│   ├── adapter.js              # RPC 数据到 UI 模型的无副作用适配转换器
+│   ├── model-names.js          # 模型 ID 到别名的字典映射
+│   ├── react.development.js    # 内置 React 18（离线无 CDN 依赖）
+│   ├── marked.min.js           # Markdown 离线解析器
+│   ├── highlight.min.js        # 语法高亮引擎
 │   │
-│   ├── app/                    # App-root helpers (extracted from app-live.jsx)
-│   │   ├── constants.js        # TWEAK_DEFAULTS, NULL_MODEL, framing strings
-│   │   └── use-bridge-snapshot.jsx  # Custom hooks: bridge subscription, theme, ⌘K
+│   ├── app/                    # 核心状态钩子与常量配置
+│   │   ├── constants.js        # 默认微调参数、模型占位定义
+│   │   └── use-bridge-snapshot.jsx  # 状态订阅与快捷键桥接 Hook
 │   │
-│   └── design/                 # UI components, split by domain
-│       ├── ui/
-│       │   ├── icons.jsx           # OMP Icon Pack v1 + TOOL_META
-│       │   ├── sparks.jsx          # Sparkline, TokenGauge, ActivityRadar
-│       │   ├── markdown.jsx        # MarkdownContent (marked + hljs)
-│       │   └── plan-annotations.jsx # AnnotablePlan + CommentForm
-│       ├── chat/
-│       │   ├── user-bubble.jsx
-│       │   ├── assistant-bubble.jsx # AssistantBubble + InlinePlan
-│       │   ├── eval-cell.jsx        # Syntax-highlighted kernel cell
-│       │   ├── tool-card.jsx        # ToolCard + ScrubbableDiff
-│       │   └── chat-view.jsx        # Auto-scroll wiring + bubble routing
-│       ├── tweaks/
-│       │   ├── style.js             # __TWEAKS_STYLE template
-│       │   ├── use-tweaks.js        # useTweaks hook
-│       │   ├── panel.jsx            # TweaksPanel + TweakSection + TweakRow
-│       │   └── controls.jsx         # Slider/Toggle/Radio/Select/etc.
-│       ├── layout/                  # CSS by visual layer (chained @import)
-│       │   ├── _index.css
-│       │   ├── chrome.css           # App + window chrome + Tabs
-│       │   ├── stage.css            # Stage layout + session column
-│       │   ├── chat.css             # Chat surface, inline plan, tool cards
-│       │   ├── composer.css         # Composer + slash palette
-│       │   ├── rail.css             # Status bar + ambient rail + minimap
-│       │   └── overlays.css         # ⌘K bridge + kanban + plan annotations
-│       ├── chrome.jsx               # WindowChrome, TabBar, StatusBar, AmbientRail, SessionMinimap
-│       ├── composer.jsx             # Composer + CommandBridge (⌘K palette)
-│       ├── panels.jsx               # PlanKanban (kanban view)
-│       ├── layout.css               # Single @import → layout/_index.css
-│       └── styles.css               # Visual tokens (colours, spacing, type)
+│   └── design/                 # 业务功能组件域
+│       ├── ui/                 # 基础原子组件（图标库、雷达图、看板批注等）
+│       ├── chat/               # 对话视图（用户气泡、助手气泡、工具执行卡片等）
+│       ├── settings/           # 模型管理、历史记录模态框
+│       ├── tweaks/             # 实时微调与个性化侧边控制台
+│       ├── layout/             # 模块化分层 CSS 样式
+│       ├── chrome.jsx          # 自定义窗口控制、标签栏、小地图、底栏
+│       ├── composer.jsx        # 富文本输入框与 ⌘K 快捷桥
+│       └── panels.jsx          # 计划模式专属看板
 │
-├── src-tauri/                  # Rust backend
+├── src-tauri/                  # Rust 原生后端
 │   ├── src/
-│   │   ├── main.rs             # Binary entry point
-│   │   ├── lib.rs              # Tauri setup, command registration
-│   │   └── agent/              # AgentBridge module
-│   │       ├── mod.rs              # Public surface: AgentBridge struct + impl
-│   │       ├── inner.rs            # BridgeInner per-session record
-│   │       ├── spawn.rs            # spawn_omp + Windows CREATE_NO_WINDOW flag
-│   │       └── reader.rs           # stdout/stderr reader threads, read_until_capped
+│   │   ├── main.rs             # 应用二进制入口
+│   │   ├── lib.rs              # Tauri 注册中心与 Command 分发
+│   │   ├── history.rs          # 历史会话恢复与会话管理
+│   │   ├── mcp_skill.rs        # MCP 与技能配置管理
+│   │   └── agent/              # omp RPC 子进程管理（生命周期、管道读写）
 │   ├── Cargo.toml
-│   ├── tauri.conf.json         # Window config + strict CSP
-│   └── capabilities/
-│       └── default.json        # Tauri capability grants
-│
-├── docs/
-│   └── plans/                  # Design documents
-├── screenshots/                # README assets
-├── test-rpc.mjs                # Dev utility: probe omp RPC directly (Node/Bun)
-├── .gitattributes
-├── .gitignore
-├── README.md
-├── CLAUDE.md
+│   └── tauri.conf.json         # 窗口配置与安全策略
 └── package.json
 ```
 
 ---
 
-## RPC Protocol
+## 开源协议与鸣谢
 
-The frontend communicates with `omp` exclusively through the Tauri IPC bridge.
-`live.js` sends JSON commands via `invoke("send_command", { sessionId, json })` and
-`agent://line` events emitted by the Rust stdout reader.
-
-### Commands sent (stdin → omp)
-
-| Command | When |
-|---------|------|
-| `get_state` | On `ready`, after each `turn_end` |
-| `get_messages` | On `ready` |
-| `get_available_models` | On `ready` |
-| `prompt` | User sends a message |
-| `abort` | User clicks abort |
-| `set_model` | User picks a model in ⌘K bridge |
-| `cycle_model` | User clicks `/model` command |
-| `cycle_thinking_level` | User cycles thinking in composer / `/thinking` |
-| `compact` | User runs `/compact` |
-| `export_html` | User runs `/export` |
-| `get_session_stats` | After each `turn_end` |
-| `extension_ui_response` | Auto-cancel for interactive UI requests |
-
-### Events received (stdout → frontend)
-
-| Event | Handler |
-|-------|---------|
-| `ready` | Bootstraps initial data fetches |
-| `turn_start` / `turn_end` | Streaming state, TPS calculation, cost accumulation |
-| `message_start` | Creates user/assistant bubbles; stamps model name |
-| `message_update` | Updates streaming bubble from accumulated content |
-| `message_end` | Finalises bubble (`streaming: false`) |
-| `tool_execution_start` | Creates running tool card |
-| `tool_execution_end` | Finalises tool card with result/diff/output |
-| `extension_ui_request` | Interactive types auto-cancelled; others ignored |
-| `agent_start` / `agent_end` | Re-fetches session state |
-
----
-
-## Key Design Decisions
-
-**`omp --mode rpc` not `omp --rpc`** — `--rpc` is not a valid flag; omp falls through to
-interactive TUI mode and outputs ANSI escape codes instead of JSON. Confirmed from source.
-
-**Blank line = skip, not EOF** — The Rust stdout reader originally used `_ => break` for
-both empty lines and IO errors; one blank line from omp killed the reader thread silently.
-Now `Ok("") => continue`, `Err(_) => break`.
-
-**`AgentBridge` kills child on drop** — Stores `Child` alongside stdin. `drop`, `stop_inner`,
-and the beginning of `start` all call `child.kill() + child.wait()` so hot-reloads and
-tab closes leave no orphaned `omp` processes.
-
-**Event delegation for window controls** — `WindowChrome` is painted by React after
-`DOMContentLoaded`. `querySelector` at that point finds nothing. All window control
-clicks are caught by a single delegated listener on `document`.
-
-**`set_model` response must be handled** — Without it, `state.model` stays stale. The next
-`turn_start` calls `notify()` which pushes the old model back to React, reverting the
-display mid-turn. The response is now handled and calls `notify()` immediately.
-
-**Model list above commands in ⌘K bridge** — With 8 command rows, the model section was
-below `max-height: 60vh` and invisible without scrolling. Models now render first.
-
----
-
-## Tauri Commands
-
-| Command | Signature | Description |
-|---------|-----------|-------------|
-| `start_session`   | `(sessionId: String, cwd: String) → Result<()>` | Spawn omp for a new tab session (`cwd: ""` = omp default) |
-| `stop_session`    | `(sessionId: String) → ()`                       | Kill that tab's omp process and reap it off-thread |
-| `send_command`    | `(sessionId: String, json: String) → Result<()>`| Write a JSON line to that session's omp stdin |
-| `session_status`  | `(sessionId: String) → Option<String>`           | Returns cached startup error if the last `start_session` failed |
-| `open_project`    | `() → Result<Option<String>>`                   | Native folder picker dialog |
-
----
-
-## Frontend State Flow
-
-```
-omp stdout
-  └─► agent://line Tauri event
-        └─► handleLine(rawLine)
-              ├─► _handleResponse(resp)   — RPC responses
-              │     ├── get_state         → _applyRpcState() → notify()
-              │     ├── get_available_models → state.models → notify()
-              │     ├── set_model         → state.model + current flags → notify()
-              │     └── cycle_model       → state.model + thinkingLevel → notify()
-              └─► _handleEvent(ev)        — AgentSessionEvents
-                    ├── turn_start/end    → isStreaming, TPS, cost
-                    ├── message_*         → streamingBubble lifecycle
-                    ├── tool_execution_*  → tool cards
-                    └── extension_ui_request → auto-cancel interactive
-
-notify()
-  ├─► subscribers (OMP_BRIDGE.onUpdate callbacks)
-  │     └─► React setState calls in app-live.jsx
-  └─► window.OMP_DATA sync (for components reading globals directly)
-```
-
----
-
-## Tweaks
-
-Open the Tweaks panel (the floating panel in the bottom-right) to adjust:
-
-| Setting | Options |
-|---------|---------|
-| Theme | aurora · phosphor · daylight |
-| Density | cozy · compact · dense |
-| Accent colour | 6 presets + custom |
-| Mono chat font | toggle |
-| Layout | rail · split · focus |
-
----
-
-## Development Notes
-
-**`test-rpc.mjs`** — Standalone Bun/Node script that spawns `omp --mode rpc` directly
-and exercises the protocol. Useful for verifying RPC behaviour without the full UI.
-
-**No CDN dependencies** — React 18, ReactDOM, and Babel standalone are bundled locally
-under `src/`. The app works fully offline.
-
-**`src/design/`** — Modified copy of the original `design/` prototype. The original
-`design/` directory is excluded from the repo (`.gitignore`); `src/design/` is committed
-and is the authoritative source. Do not regenerate from `design/` — that would overwrite
-the live-wiring changes.
-
-**Windows 11 target** — Uses `color-mix(in oklab, …)` which requires WebView2 ≥ 101
-(Windows 11 default). The frameless window (`decorations: false`) relies on DWM for
-corner rounding.
+本项目遵循开源协议，代码与设计成果归属于原作者及社区贡献者共同所有。欢迎体验与交流！
