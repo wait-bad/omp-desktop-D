@@ -119,25 +119,34 @@
 
 | 工具 / 环境 | 推荐版本 |
 |------|---------|
-| [Rust](https://rustup.rs/) | 稳定版 stable (1.77+) |
-| [Node.js](https://nodejs.org/) | 18+ |
-| [Tauri CLI](https://tauri.app/start/prerequisites/) | 2.x (`npm install`) |
-| [oh-my-pi](https://github.com/can1357/oh-my-pi) | 14.8+（需将 `omp` 保持在环境变量 PATH 中） |
+| 运行桌面端 | Windows 10/11（当前提供预编译包） |
+| [oh-my-pi](https://github.com/can1357/oh-my-pi)（`omp`） | 14.8+，且能在终端直接执行 |
+| 自行编译时另需 | [Rust](https://rustup.rs/) stable 1.77+、[Node.js](https://nodejs.org/) 18+、[Tauri CLI](https://tauri.app/start/prerequisites/) 2.x |
 
-> **提示**：确保终端可以全局执行 `omp` 命令。在 Windows 环境下，`omp.exe` 常见安装路径为 `%LOCALAPPDATA%\omp\omp.exe`。
+> **给小白**：先装 `omp`，再装本客户端。完整图文步骤见 👉 **[oh-my-pi（omp）小白安装教程](docs/install-omp.md)**。  
+> Windows 上 `omp.exe` 常见路径：`%LOCALAPPDATA%\omp\omp.exe`。
 
 ---
 
 ## 📥 下载与安装 (Download & Installation)
 
-如果你只想直接使用客户端，**无需自行配置 Rust 或 Node.js 编译环境**，直接前往 Releases 页面下载预编译好的 Windows 产物即可：
+### 1. 先安装 omp（必做）
+
+桌面端本身不能替代 `omp`。请按教程完成安装并验证 `omp --version`：
+
+👉 **[oh-my-pi（omp）小白安装教程](docs/install-omp.md)**
+
+- Windows 一键安装（PowerShell）：`irm https://omp.sh/install.ps1 | iex`
+- macOS / Linux：`curl -fsSL https://omp.sh/install | sh`
+
+### 2. 再下载本客户端（无需自己编译）
+
+直接前往 Releases 下载预编译 Windows 产物即可，**普通用户不必配置 Rust / Node.js**：
 
 👉 **[点击前往 GitHub Releases 下载最新版本 (v0.1.2)](https://github.com/wait-bad/omp-desktop-D/releases/latest)**
 
 - **`OMP.Desktop_0.1.2_x64-setup.exe`**：标准 Windows 安装向导（推荐），自动创建桌面与开始菜单快捷方式。
 - **`omp-desktop.exe`**：免安装便携版（Portable），双击即可直接运行。
-
-> **前置条件**：请确保本机已安装并配置好 [oh-my-pi](https://github.com/can1357/oh-my-pi)（`omp` 能够在系统终端中直接执行）。
 
 ---
 
