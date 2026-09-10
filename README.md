@@ -128,7 +128,22 @@
 
 ---
 
-## 本地快速开始 (Getting Started)
+## 📥 下载与安装 (Download & Installation)
+
+如果你只想直接使用客户端，**无需自行配置 Rust 或 Node.js 编译环境**，直接前往 Releases 页面下载预编译好的 Windows 产物即可：
+
+👉 **[点击前往 GitHub Releases 下载最新版本 (v0.1.2)](https://github.com/wait-bad/omp-desktop-D/releases/latest)**
+
+- **`OMP.Desktop_0.1.2_x64-setup.exe`**：标准 Windows 安装向导（推荐），自动创建桌面与开始菜单快捷方式。
+- **`omp-desktop.exe`**：免安装便携版（Portable），双击即可直接运行。
+
+> **前置条件**：请确保本机已安装并配置好 [oh-my-pi](https://github.com/can1357/oh-my-pi)（`omp` 能够在系统终端中直接执行）。
+
+---
+
+## 🛠️ 源码编译与二次开发 (For Developers)
+
+如果你想参与开发或自行编译：
 
 ```bash
 # 1. 克隆代码仓库
@@ -138,10 +153,10 @@ cd omp-desktop-D
 # 2. 安装开发依赖
 npm install
 
-# 3. 启动开发模式（支持前端热重载，自动编译 Rust 后端并唤起窗口，Debug 构建下自动打开 DevTools）
+# 3. 启动开发模式（支持前端热重载，自动编译 Rust 后端并唤起窗口）
 npm run dev
 
-# 4. 构建生产发布包
+# 4. 自行打包生成安装程序
 npm run build
 ```
 
