@@ -71,7 +71,7 @@ const CompactRow = React.memo(function CompactRow({ msg }) {
   );
 });
 
-function ChatView({ messages, planMode, annotations, onAnnotate, hoveredMsgIdx, onAskAnswer }) {
+function ChatView({ messages, planMode, annotations, onAnnotate, hoveredMsgIdx, onAskAnswer, isWaitingFirstToken }) {
   const scrollRef    = React.useRef(null);
   const atBottomRef  = React.useRef(true);   // assume start at bottom
   const prevCountRef = React.useRef(0);
@@ -125,6 +125,14 @@ function ChatView({ messages, planMode, annotations, onAnnotate, hoveredMsgIdx, 
             annotations={annotations}
             onAnnotate={onAnnotate} />;
         })}
+        {isWaitingFirstToken && (
+          <div className="row fade-up" style={{ paddingLeft: 57, alignItems: "center", gap: 10, margin: "6px 0" }}>
+            <span className="pulse-dot" style={{ background: "var(--accent)", width: 6, height: 6 }} />
+            <span className="mono" style={{ color: "var(--fg-3)", fontSize: "var(--d-text-xs)", letterSpacing: "0.02em" }}>
+              thinking...
+            </span>
+          </div>
+        )}
         <div style={{ height: 24 }} />
       </div>
     </div>

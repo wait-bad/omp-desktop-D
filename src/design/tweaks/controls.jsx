@@ -231,7 +231,69 @@ function TweakButton({ label, onClick, secondary = false }) {
   );
 }
 
+function TweakImageUpload({ label, value, onChange }) {
+  const fileInputRef = React.useRef(null);
+
+  const handleFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (loadEv) => {
+      const dataUrl = loadEv.target?.result;
+      if (dataUrl) onChange(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className="twk-row twk-row-v" style={{ gap: 6, padding: "6px 0" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: "var(--d-text-xs)", color: "var(--fg-3)" }}>{label}</span>
+        {value && (
+          <button
+            type="button"
+            className="btn ghost mini"
+            style={{ fontSize: "11px", color: "var(--crimson)", padding: "0 4px" }}
+            onClick={() => onChange("")}
+          >
+            clear
+          </button>
+        )}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        {value ? (
+          <img
+            src={value}
+            alt=""
+            style={{ width: 28, height: 28, borderRadius: 6, objectFit: "cover", border: "1px solid var(--line-bright)" }}
+          />
+        ) : (
+          <div style={{ width: 28, height: 28, borderRadius: 6, background: "var(--bg-elevated)", border: "1px dashed var(--line)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--fg-4)", fontSize: 10 }}>
+            none
+          </div>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: "none" }}
+          onChange={handleFile}
+        />
+        <button
+          type="button"
+          className="btn mini"
+          style={{ flex: 1, justifyContent: "center" }}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          Choose Local Image...
+        </button>
+      </div>
+    </div>
+  );
+}
+
 Object.assign(window, {
   TweakSlider, TweakToggle, TweakRadio, TweakSelect,
   TweakText, TweakNumber, TweakColor, TweakButton,
+  TweakImageUpload,
 });

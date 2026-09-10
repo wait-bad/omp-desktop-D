@@ -75,7 +75,7 @@ fn probe_rpc_ui() -> bool {
 // ── session spawn ─────────────────────────────────────────────────────────────
 
 /// Spawn omp for a live session using the best available RPC mode.
-pub(super) fn spawn_omp(cwd: Option<&str>) -> Result<Child, String> {
+pub(super) fn spawn_omp(cwd: Option<&str>, resume_path: Option<&str>) -> Result<Child, String> {
     // On Windows, `Command::new` resolves bare "omp" against PATH and
     // PATHEXT (.exe etc.) via CreateProcess. We try the explicit ".exe"
     // name first because some systems have weird PATHEXT handling, then
@@ -88,9 +88,15 @@ pub(super) fn spawn_omp(cwd: Option<&str>) -> Result<Child, String> {
     for name in CANDIDATES {
         let mut cmd = Command::new(name);
         cmd.args(["--mode", mode])
+            .env("PI_NO_PTY", "1")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
+        if let Some(rpath) = resume_path {
+            if !rpath.is_empty() {
+                cmd.arg("--resume").arg(rpath);
+            }
+        }
         // Suppress the transient console window that Windows would
         // otherwise attach to a console-subsystem child of a GUI parent.
         #[cfg(windows)]

@@ -95,9 +95,6 @@ rl.on("line", raw => {
       ? { input: obj.message.usage.input, output: obj.message.usage.output }
       : null;
   }
-  if (t === "agent_start") {}
-  if (t === "agent_end") fields.msg_count = obj.messages?.length;
-
   console.log(JSON.stringify(fields));
 });
 

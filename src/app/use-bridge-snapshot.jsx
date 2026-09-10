@@ -16,8 +16,8 @@ function useBridgeSnapshot(bridge, setters) {
     const unsub = bridge.onUpdate((snap) => {
       setters.setMessages(snap.messages);
       setters.setStreaming(snap.isStreaming);
+      if (setters.setIsWaitingFirstToken) setters.setIsWaitingFirstToken(!!snap.isWaitingFirstToken);
       setters.setCtx(snap.ctx);
-      setters.setKanban(snap.kanban);
       setters.setPlanMeta(snap.planMeta);
       setters.setModels(snap.models);
       setters.setActivity(snap.activity);
@@ -42,7 +42,18 @@ function useThemeEffect(t) {
     else            root.classList.remove("mono-chat");
     if (t.accent)   root.style.setProperty("--accent", t.accent);
     if (t.fontSize) root.style.fontSize = `${t.fontSize}%`;
-  }, [t.theme, t.density, t.accent, t.monoChat, t.fontSize]);
+
+    // Background image & opacity
+    if (t.bgImage) {
+      root.style.setProperty("--custom-bg-image", `url(${t.bgImage})`);
+      root.style.setProperty("--custom-bg-opacity", `${(t.bgOpacity ?? 60) / 100}`);
+      root.classList.add("has-custom-bg");
+    } else {
+      root.style.removeProperty("--custom-bg-image");
+      root.style.removeProperty("--custom-bg-opacity");
+      root.classList.remove("has-custom-bg");
+    }
+  }, [t.theme, t.density, t.accent, t.monoChat, t.fontSize, t.bgImage, t.bgOpacity]);
 }
 
 function useCommandShortcut(setBridgeOpen, setBridgeView) {

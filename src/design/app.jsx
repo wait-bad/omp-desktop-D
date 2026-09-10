@@ -17,7 +17,9 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "accent": "#8AF0C8",
   "monoChat": false,
   "scanlines": true,
-  "showRadar": true
+  "showRadar": true,
+  "prefixEnabled": false,
+  "customPrefix": ""
 }/*EDITMODE-END*/;
 
 function App() {

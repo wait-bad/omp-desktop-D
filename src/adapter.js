@@ -8,7 +8,7 @@
   // ── Tool name normalisation ───────────────────────────────────────────────
   // Maps omp tool names → design TOOL_META keys (ui.jsx)
   const TOOL_NAME_MAP = {
-    read: "read", search: "search", edit: "edit", bash: "bash",
+    read: "read", search: "search", edit: "edit", bash: "bash", hub: "hub",
     write: "write", todo_write: "todo", find: "search",
     web_search: "search", lsp: "search",
     eval: "eval", task: "task", quick_task: "task", debug: "debug", ask: "ask",
@@ -172,6 +172,7 @@
     // args is a plain object; extract a display target from common arg names
     const args   = (typeof event.args === "object" && event.args !== null) ? event.args : {};
     const target = args.path ?? args.pattern ?? args.command ?? args.query
+                ?? (args.op ? `${args.op}${args.name ? ` · ${args.name}` : ""}${args.application ? ` · ${args.application}` : ""}` : null)
                 ?? args.expression ?? args.url
                 ?? (tool === "eval" && args.input
                       ? (String(args.input).match(/={5}\s*(.*?)\s*={5}/)?.[1] ?? "")
@@ -230,6 +231,17 @@
              : /^[✗✘]|^FAIL|^Error|\bfailed\b/.test(line) ? "rose"
              : "fg-3",
       }));
+    }
+    if (card.tool === "hub") {
+      const rawOutput = details?.output ?? details?.logs ?? details?.message ?? (event.result?.content?.[0]?.text ?? "");
+      if (rawOutput) {
+        extra.output = String(rawOutput).split("\n").slice(0, 30).map(line => ({
+          line,
+          color: /^[✓✔]|^PASS|\bpassed\b|ready/i.test(line) ? "accent"
+               : /^[✗✘]|^FAIL|^Error|\bfailed\b|error/i.test(line) ? "rose"
+               : "fg-3",
+        }));
+      }
     }
     if (card.tool === "eval" && details?.cells) {
       extra.cells = details.cells.map(c => ({
@@ -299,13 +311,13 @@
         title: c.title,
       }));
     }
-    if (card.tool === "bash") {
-      const text = pr.content?.[0]?.text ?? "";
+    if (card.tool === "bash" || card.tool === "hub") {
+      const text = pr.content?.[0]?.text ?? details?.output ?? details?.logs ?? "";
       if (text) {
-        extra.output = text.split("\n").slice(-20).map(line => ({
+        extra.output = String(text).split("\n").slice(-25).map(line => ({
           line,
-          color: /^[✓✔]|^PASS|\bpassed\b/.test(line) ? "accent"
-               : /^[✗✘]|^FAIL|^Error|\bfailed\b/.test(line) ? "rose"
+          color: /^[✓✔]|^PASS|\bpassed\b|ready/i.test(line) ? "accent"
+               : /^[✗✘]|^FAIL|^Error|\bfailed\b|error/i.test(line) ? "rose"
                : "fg-3",
         }));
       }

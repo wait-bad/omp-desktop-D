@@ -6,14 +6,14 @@
    - Ambient rail: TokenGauge, ActivityRadar, Minimap, Peer session
    ═════════════════════════════════════════════════════════════════════ */
 
-const { Icon, TokenGauge, ActivityRadar, Sparkline, TOOL_META } = window;
+
 
 // ── Platform detection ────────────────────────────────────────────────
 const IS_WIN = typeof navigator !== "undefined" &&
   (navigator.userAgent.includes("Windows") || navigator.platform.startsWith("Win"));
 
 // ── Window chrome ─────────────────────────────────────────────────────
-function WindowChrome({ project, peer, onCmd }) {
+function WindowChrome({ project, peer, onCmd, onSettings, onHistory }) {
   return (
     <div className="chrome" data-tauri-drag-region>
       {/* macOS traffic lights — left side, hidden on Windows */}
@@ -24,6 +24,18 @@ function WindowChrome({ project, peer, onCmd }) {
           <span className="light green" />
         </div>
       )}
+
+      <div className="chrome-left" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <button
+          className="btn ghost"
+          onClick={onHistory}
+          title="Session History"
+          style={{ padding: "4px 8px", display: "flex", alignItems: "center", gap: 5 }}
+        >
+          <Icon name="clock" size={13} color="var(--accent, #8AF0C8)" />
+          <span className="mono" style={{ fontSize: 11, color: "var(--fg-3)" }}>History</span>
+        </button>
+      </div>
 
       <div className="chrome-title">
         <span className="mono" style={{ color: "var(--fg-3)" }}>OMP</span>
@@ -38,12 +50,14 @@ function WindowChrome({ project, peer, onCmd }) {
       </div>
 
       <div className="chrome-right">
+        <button className="btn ghost" onClick={onSettings} title="Settings (API & Persona)" style={{ padding: "4px 8px" }}>
+          <Icon name="cog" size={13} color="var(--fg-2)" />
+        </button>
+
         <button className="btn ghost outlined" onClick={onCmd}>
           <Icon name="command" size={11} /> bridge{" "}
           <span className="kbd">{IS_WIN ? "^K" : "⌘K"}</span>
         </button>
-
-        {/* Windows controls — right side, hidden on macOS/Linux */}
         {IS_WIN && (
           <div className="win-controls">
             <button className="win-ctrl win-min"   title="Minimize">&#8211;</button>

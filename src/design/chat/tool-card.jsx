@@ -199,7 +199,7 @@ function ToolCard({ msg, idx, highlighted }) {
           </div>
         )}
 
-        {msg.tool === "bash" && msg.output && (
+        {(msg.tool === "bash" || msg.tool === "hub") && msg.output && (
           <pre className="tool-bash mono selectable">
             {msg.output.map((l, i) => (
               <div key={i} style={{ color: `var(--${l.color})` }}>{l.line}</div>

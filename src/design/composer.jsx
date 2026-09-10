@@ -2,10 +2,10 @@
    composer.jsx — input area + slash palette + ⌘K command bridge
    ═════════════════════════════════════════════════════════════════════ */
 
-const { Icon } = window;
+
 
 // ── The composer (input + plan/steer modes + send) ────────────────────
-function Composer({ onSend, onPick, planMode, onTogglePlan, onOpenCmd, onOpenModel, currentModel, thinking, onCycleThinking, isStreaming, onAbort, onApprove, annotationCount = 0, microcopy }) {
+function Composer({ onSend, onPick, planMode, onTogglePlan, prefixEnabled, onTogglePrefix, onOpenCmd, onOpenModel, currentModel, thinking, onCycleThinking, isStreaming, onAbort, onApprove, annotationCount = 0, microcopy }) {
   const [text, setText]       = React.useState("");
   const [activeIdx, setActiveIdx] = React.useState(0);
   const taRef   = React.useRef(null);
@@ -206,6 +206,10 @@ function Composer({ onSend, onPick, planMode, onTogglePlan, onOpenCmd, onOpenMod
           <Icon name="plan" size={11} color={planMode ? "var(--amber)" : "var(--fg-3)"} />
           <span style={{ color: planMode ? "var(--amber)" : "var(--fg-2)" }}>plan mode</span>
         </button>
+        <button className={`composer-pill ${prefixEnabled ? "on" : ""}`} onClick={onTogglePrefix} title={prefixEnabled ? "独立提示词: 已启用 (点击切换)" : "独立提示词: 已停用 (点击切换)"}>
+          <Icon name="sparkle" size={11} color={prefixEnabled ? "var(--accent)" : "var(--fg-3)"} />
+          <span style={{ color: prefixEnabled ? "var(--accent)" : "var(--fg-2)" }}>独立提示词 {prefixEnabled ? "ON" : "OFF"}</span>
+        </button>
         <div style={{ flex: 1 }} />
         <span className="mono" style={{ color: "var(--fg-4)", fontSize: "var(--d-text-xs)" }}>
           {isStreaming && text.trim() ? "↵ steer · ⎋ abort" : "↵ send · ⇧↵ newline · ⎋ abort"}
@@ -221,37 +225,73 @@ function Composer({ onSend, onPick, planMode, onTogglePlan, onOpenCmd, onOpenMod
 //  models view    — filterable model list; Esc returns to commands
 //
 function CommandBridge({ open, onClose, onPick, onPickModel, currentModelId, onPickLogin, loginProviders, initialView = "commands" }) {
-  const [q, setQ]       = React.useState("");
-  const [view, setView] = React.useState("commands");
+  const [q, setQ]             = React.useState("");
+  const [view, setView]       = React.useState("commands");
+  const [selectedIdx, setSelectedIdx] = React.useState(0);
   const inputRef = React.useRef(null);
 
   React.useEffect(() => {
     if (open) {
       setQ("");
       setView(initialView);
+      setSelectedIdx(0);
       setTimeout(() => inputRef.current?.focus(), 30);
     }
   }, [open]);
 
   React.useEffect(() => {
+    setSelectedIdx(0);
+  }, [q, view]);
+
+  const fil    = (s) => (s || "").toLowerCase().includes(q.toLowerCase());
+  const models = window.OMP_DATA?.models || [];
+  const modelHits = view === "models" ? models.filter((m) => !q || fil(m.name) || fil(m.id)) : [];
+
+  const cmds    = window.OMP_DATA?.commands || [];
+  const cmdHits = view === "commands" ? cmds.filter((c) => !q || fil(c.name) || fil(c.hint)) : [];
+  const groups  = {};
+  if (view === "commands") {
+    cmdHits.forEach((c) => { (groups[c.group] = groups[c.group] || []).push(c); });
+  }
+
+  React.useEffect(() => {
     const onKey = (e) => {
-      if (e.key !== "Escape" || !open) return;
-      if (view === "models") { if (initialView === "models") onClose(); else { setView("commands"); setQ(""); } }
-      else if (view === "login") { if (initialView === "login") onClose(); else { setView("commands"); setQ(""); } }
-      else onClose();
+      if (!open) return;
+      if (e.key === "Escape") {
+        if (view === "models") { if (initialView === "models") onClose(); else { setView("commands"); setQ(""); } }
+        else if (view === "login") { if (initialView === "login") onClose(); else { setView("commands"); setQ(""); } }
+        else onClose();
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        const max = view === "models" ? modelHits.length : (view === "commands" ? cmdHits.length : 0);
+        if (max > 0) setSelectedIdx((i) => (i + 1) % max);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        const max = view === "models" ? modelHits.length : (view === "commands" ? cmdHits.length : 0);
+        if (max > 0) setSelectedIdx((i) => (i - 1 + max) % max);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (view === "models" && modelHits.length > 0) {
+          const chosen = modelHits[selectedIdx] || modelHits[0];
+          if (chosen) { onPickModel(chosen); onClose(); }
+        } else if (view === "commands" && cmdHits.length > 0) {
+          const chosen = cmdHits[selectedIdx] || cmdHits[0];
+          if (chosen) {
+            if (chosen.name === "model") { setQ(""); setView("models"); }
+            else if (chosen.name === "login") { setQ(""); setView("login"); }
+            else { onPick(chosen); onClose(); }
+          }
+        }
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose, view]);
+  }, [open, onClose, view, initialView, selectedIdx, modelHits, cmdHits, onPickModel, onPick]);
 
   if (!open) return null;
 
-  const fil    = (s) => s.toLowerCase().includes(q.toLowerCase());
-  const models = window.OMP_DATA.models;
-
   // ── Model picker view ──────────────────────────────────────────────
   if (view === "models") {
-    const modelHits = models.filter((m) => !q || fil(m.name) || fil(m.id));
     return (
       <div className="bridge-scrim" onClick={onClose}>
         <div className="bridge slide-in" onClick={(e) => e.stopPropagation()}>
@@ -274,28 +314,33 @@ function CommandBridge({ open, onClose, onPick, onPickModel, currentModelId, onP
                 <span style={{ color: "var(--fg-4)" }}>
                   tauri:{window.__TAURI__ ? "✓" : "✗"}
                   · connected:{window.OMP_BRIDGE?.isConnected ? "✓" : "✗"}
-                  · models:{window.OMP_DATA.models.length}
+                  · models:{models.length}
                 </span>
                 <button className="btn ghost" style={{ marginLeft: "auto", height: 18, fontSize: "var(--d-text-xs)", padding: "0 6px" }}
                   onClick={() => window.OMP_BRIDGE?.refreshModels()}>
                   refresh
                 </button>
               </div>
-              {modelHits.map((m) => (
-                <button key={m.id}
-                  className={`bridge-row ${m.id === currentModelId ? "active" : ""}`}
-                  onClick={() => { onPickModel(m); onClose(); }}>
-                  <span className="bridge-glyph">
-                    {m.id === currentModelId
-                      ? <Icon name="check" size={10} color="var(--accent)" />
-                      : <Icon name="bolt"  size={10} color="var(--cyan)" />}
-                  </span>
-                  <span style={{ color: m.id === currentModelId ? "var(--accent)" : "var(--fg)" }}>{m.name}</span>
-                  <span className="mono" style={{ color: "var(--fg-4)" }}>{m.id}</span>
-                  <span style={{ color: "var(--fg-3)" }}>· {m.note}</span>
-                  <span className="chip muted" style={{ marginLeft: "auto" }}>{m.latency}ms</span>
-                </button>
-              ))}
+              {modelHits.map((m, idx) => {
+                const isCurrent = m.id === currentModelId;
+                const isHighlighted = idx === selectedIdx;
+                return (
+                  <button key={m.id}
+                    className={`bridge-row ${isCurrent ? "active" : ""}`}
+                    style={isHighlighted ? { outline: "1px solid var(--accent)", background: "color-mix(in oklab, var(--accent) 12%, transparent)" } : undefined}
+                    onClick={() => { onPickModel(m); onClose(); }}>
+                    <span className="bridge-glyph">
+                      {isCurrent
+                        ? <Icon name="check" size={10} color="var(--accent)" />
+                        : <Icon name="bolt"  size={10} color="var(--cyan)" />}
+                    </span>
+                    <span style={{ color: isCurrent ? "var(--accent)" : "var(--fg)" }}>{m.name}</span>
+                    <span className="mono" style={{ color: "var(--fg-4)" }}>{m.id}</span>
+                    <span style={{ color: "var(--fg-3)" }}>· {m.note}</span>
+                    <span className="chip muted" style={{ marginLeft: "auto" }}>{m.latency}ms</span>
+                  </button>
+                );
+              })}
               {modelHits.length === 0 && <div className="bridge-empty">no models found</div>}
             </div>
           </div>
@@ -365,10 +410,7 @@ function CommandBridge({ open, onClose, onPick, onPickModel, currentModelId, onP
   }
 
   // ── Commands view ──────────────────────────────────────────────────
-  const cmds    = window.OMP_DATA.commands;
-  const cmdHits = cmds.filter((c) => !q || fil(c.name) || fil(c.hint));
-  const groups  = {};
-  cmdHits.forEach((c) => { (groups[c.group] = groups[c.group] || []).push(c); });
+
   const activeModelName = models.find((m) => m.id === currentModelId)?.name ?? "–";
 
   return (

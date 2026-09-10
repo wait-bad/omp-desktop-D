@@ -3,7 +3,7 @@
    Opened after plan approval; populated by agent's todo_write tool.
    ═════════════════════════════════════════════════════════════════════ */
 
-const { Icon, TOOL_META } = window;
+
 
 // ── Phase pill ────────────────────────────────────────────────────────
 function PhasePill({ phase }) {

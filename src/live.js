@@ -28,8 +28,8 @@
       { name: "model",    hint: "switch model",                       icon: "◉", group: "Agent"   },
       { name: "thinking", hint: "cycle thinking level",               icon: "✶", group: "Agent"   },
       { name: "login",    hint: "authenticate with a model provider",   icon: "⊙", group: "Agent"   },
+      { name: "settings", hint: "manage API keys, URLs and custom models", icon: "⚙", group: "Agent" },
       { name: "todo",     hint: "open the kanban surface",            icon: "▦", group: "View"    },
-      { name: "export",   hint: "export this session to HTML",        icon: "⇪", group: "View"    },
     ],
     models: [],
     activity: [],
@@ -51,10 +51,10 @@
   // These are the "current session's" live variables. _resetSessionVars() wipes
   // them and _switchToSession() swaps them when the active tab changes.
   const state = {
-    messages:       [],
-    isStreaming:    false,
-    model:          null,
-    thinkingLevel:  null,
+    messages:            [],
+    isStreaming:         false,
+    isWaitingFirstToken: false,
+    model:               null,
     ctx:            { ...DEFAULT_DATA.ctx },
     kanban:         [],
     planMeta:       { ...DEFAULT_DATA.planMeta },
@@ -142,7 +142,20 @@
     }
   }
 
+  let _notifyTimer = null;
+  function notifyThrottled(delay = 50) {
+    if (_notifyTimer) return;
+    _notifyTimer = setTimeout(() => {
+      _notifyTimer = null;
+      notify();
+    }, delay);
+  }
+
   function notify() {
+    if (_notifyTimer) {
+      clearTimeout(_notifyTimer);
+      _notifyTimer = null;
+    }
     _trimMessages();
     // Stamp stable IDs on any message that doesn't have one yet (new pushes,
     // restored sessions, or messages from get_messages). O(N) but N ≤ 169 and
@@ -151,11 +164,11 @@
       if (!m._id) m._id = ++_msgSeq;
     }
     const snap = {
-      messages:        state.messages,
-      isStreaming:     state.isStreaming,
-      model:           state.model,
-      thinkingLevel:   state.thinkingLevel,
-      ctx:             state.ctx,
+      messages:            state.messages,
+      isStreaming:         state.isStreaming,
+      isWaitingFirstToken: state.isWaitingFirstToken,
+      model:               state.model,
+      thinkingLevel:       state.thinkingLevel,
       kanban:          state.kanban,
       planMeta:        state.planMeta,
       models:          state.models,
@@ -168,12 +181,13 @@
     subscribers.forEach(cb => cb(snap));
 
     // Keep OMP_DATA in sync for design components that read it directly
-    window.OMP_DATA.messages  = state.messages;
-    window.OMP_DATA.models    = state.models;
-    window.OMP_DATA.kanban    = state.kanban;
-    window.OMP_DATA.planMeta  = state.planMeta;
-    window.OMP_DATA.ctx       = state.ctx;
-    window.OMP_DATA.activity  = state.activity;
+    window.OMP_DATA.messages            = state.messages;
+    window.OMP_DATA.isWaitingFirstToken = state.isWaitingFirstToken;
+    window.OMP_DATA.models              = state.models;
+    window.OMP_DATA.kanban              = state.kanban;
+    window.OMP_DATA.planMeta            = state.planMeta;
+    window.OMP_DATA.ctx                 = state.ctx;
+    window.OMP_DATA.activity            = state.activity;
   }
 
   // Reset all per-session volatile state (called before loading a new session)
@@ -445,7 +459,14 @@
       notify();
 
     } else if (command === "get_session_stats") {
-      // SessionStats — no display action needed
+      if (data) {
+        if (data.cost != null) state.sessionCost = data.cost;
+        if (data.contextUsage && state.rpcState) {
+          state.rpcState.contextUsage = data.contextUsage;
+        }
+        _refreshCtx();
+        notify();
+      }
     }
   }
 
@@ -556,11 +577,12 @@
 
     if (type === "turn_end") {
       state.isStreaming = false;
+      state.isWaitingFirstToken = false;
       streamingBubble = null;
-      const usage = ev.message?.usage;
+      const turnUsage = ev.message?.usage ?? ev.usage;
       if (turnStartTime) {
         const elapsed   = (now - turnStartTime) / 1000;
-        const outTokens = usage?.output ?? 0;
+        const outTokens = turnUsage?.output ?? 0;
         if (elapsed > 0 && outTokens > 0) {
           const tps = outTokens / elapsed;
           tpsSamples.push(Math.round(tps));
@@ -569,8 +591,8 @@
           state.sparkline  = [...tpsSamples];
         }
       }
-      if (usage?.cost?.total) {
-        state.sessionCost = (state.sessionCost ?? 0) + usage.cost.total;
+      if (turnUsage?.cost?.total) {
+        state.sessionCost = (state.sessionCost ?? 0) + turnUsage.cost.total;
         _refreshCtx();
       }
       _send({ type: "get_session_stats" });
@@ -595,6 +617,7 @@
           notify();
         }
       } else if (role === "assistant") {
+        state.isWaitingFirstToken = false;
         streamingBubble = {
           kind: "assistant", time,
           thought: null, lead: null,
@@ -637,7 +660,7 @@
       } else {
         state.messages = [...state.messages.slice(0, -1), updated];
       }
-      notify();
+      notifyThrottled(40);
       return;
     }
 
@@ -715,7 +738,7 @@
           const msgs = [...state.messages];
           msgs[idx] = updated;
           state.messages = msgs;
-          notify();
+          notifyThrottled(50);
         }
       }
       return;
@@ -871,21 +894,44 @@
     get isConnected() { return !!window.__TAURI__ && !!activeSessionId; },
 
     // ── Messaging ────────────────────────────────────────────────────────────
-    send(text, images) {
-      const userMsg = { kind: "user", time: timeNow(), text };
+    send(text, images, displayText) {
+      const userMsg = { kind: "user", time: timeNow(), text: displayText !== undefined ? displayText : text };
+      state.isStreaming = true;
+      state.isWaitingFirstToken = true;
+      streamingBubble = null;
       state.messages = [...state.messages, userMsg];
       notify();
       _send({ type: "prompt", message: text, images: images ?? [] });
     },
-    abort()            { _send({ type: "abort" }); },
-    followUp(text)     { _send({ type: "follow_up", message: text }); },
-    steer(text) {
-      const userMsg = { kind: "user", time: timeNow(), text };
+    abort() {
+      state.isWaitingFirstToken = false;
+      _send({ type: "abort" });
+    },
+    followUp(text) {
+      state.isStreaming = true;
+      state.isWaitingFirstToken = true;
+      streamingBubble = null;
+      notify();
+      _send({ type: "follow_up", message: text });
+    },
+    steer(text, displayText) {
+      const userMsg = { kind: "user", time: timeNow(), text: displayText !== undefined ? displayText : text };
+      state.isStreaming = true;
+      state.isWaitingFirstToken = true;
+      streamingBubble = null;
       state.messages = [...state.messages, userMsg];
       notify();
       _send({ type: "steer", message: text, images: [] });
     },
-    setModel(model)    { _send({ type: "set_model", provider: model.provider, modelId: model.id }); },
+    setModel(m) {
+      if (!m) return;
+      const provider = m.provider || (m.id.includes("/") ? m.id.split("/")[0] : undefined);
+      const modelId = m.id.includes("/") ? m.id.split("/")[1] : m.id;
+      state.model = _buildModelEntry(m);
+      state.models = state.models.map(item => ({ ...item, current: item.id === m.id }));
+      notify();
+      _send({ type: "set_model", provider: provider ?? m.provider, modelId });
+    },
     cycleModel()       { _send({ type: "cycle_model" }); },
     cycleThinking()    { _send({ type: "cycle_thinking_level" }); },
     compact() {
@@ -897,6 +943,70 @@
     newSession()       { _send({ type: "new_session" }); },
     exportHtml()       { _send({ type: "export_html" }); },
     refreshModels()    { _initFetch(); },
+
+    async getModelsConfig() {
+      if (window.__TAURI__?.core?.invoke) {
+        const res = await window.__TAURI__.core.invoke("load_models_config");
+        return JSON.parse(res || "{}");
+      }
+      return {};
+    },
+
+    async saveModelsConfig(config) {
+      if (window.__TAURI__?.core?.invoke) {
+        await window.__TAURI__.core.invoke("save_models_config", { json: JSON.stringify(config) });
+        _initFetch();
+        return true;
+      }
+      return false;
+    },
+
+    // ── MCP, Skill & Global Prompt Bridge ─────────────────────────────────────
+
+    async getMcpServers() {
+      if (window.__TAURI__?.core?.invoke) {
+        return await window.__TAURI__.core.invoke("list_mcp_servers");
+      }
+      return [];
+    },
+
+    async toggleMcpServer(name, enabled) {
+      if (window.__TAURI__?.core?.invoke) {
+        return await window.__TAURI__.core.invoke("toggle_mcp_server", { name, enabled });
+      }
+    },
+
+    async getSkills() {
+      if (window.__TAURI__?.core?.invoke) {
+        return await window.__TAURI__.core.invoke("list_skills");
+      }
+      return [true, []];
+    },
+
+    async toggleSkill(name, enabled) {
+      if (window.__TAURI__?.core?.invoke) {
+        return await window.__TAURI__.core.invoke("toggle_skill", { name, enabled });
+      }
+    },
+
+    async setSkillsMasterEnabled(enabled) {
+      if (window.__TAURI__?.core?.invoke) {
+        return await window.__TAURI__.core.invoke("set_skills_master_enabled", { enabled });
+      }
+    },
+
+    async getSystemPrompt() {
+      if (window.__TAURI__?.core?.invoke) {
+        return await window.__TAURI__.core.invoke("get_system_prompt");
+      }
+      return "";
+    },
+
+    async saveSystemPrompt(content) {
+      if (window.__TAURI__?.core?.invoke) {
+        return await window.__TAURI__.core.invoke("save_system_prompt", { content });
+      }
+    },
 
     // ── Login ─────────────────────────────────────────────────────────────────
 
@@ -981,6 +1091,70 @@
       // Activate
       await _switchToSession(id);
       return id;
+    },
+
+    /** Resume an existing session from its .jsonl path */
+    async resumeSession(sessionPath, cwd, sessionTitle) {
+      const id = `session-${Date.now()}`;
+      const name = sessionTitle ? sessionTitle.slice(0, 20) : "resumed session";
+      sessionRegistry.set(id, { id, name, path: cwd ?? "", color: "var(--amber)", branch: null });
+      
+      // Preload history messages directly from the session file so they show immediately in chat!
+      let historyMessages = [];
+      if (window.__TAURI__?.core?.invoke) {
+        try {
+          historyMessages = await window.__TAURI__.core.invoke("get_session_history_messages", { path: sessionPath });
+        } catch (e) {
+          console.error("[live] failed to load history messages from file:", e);
+        }
+      }
+
+      await window.__TAURI__.core.invoke("start_session", {
+        sessionId: id,
+        cwd: cwd ?? "",
+        resumePath: sessionPath,
+      });
+      if (cwd) {
+        const branch = await window.__TAURI__.core
+          .invoke("start_git_watch", { sessionId: id, path: cwd })
+          .catch(() => null);
+        const entry = sessionRegistry.get(id);
+        if (entry) sessionRegistry.set(id, { ...entry, branch: branch ?? null });
+        const { listen } = window.__TAURI__.event;
+        const unlisten = await listen(`git://branch/${id}`, ev => {
+          const e = sessionRegistry.get(id);
+          if (e) sessionRegistry.set(id, { ...e, branch: ev.payload });
+          notify();
+        });
+        gitListeners.set(id, unlisten);
+      }
+      await _switchToSession(id);
+      if (historyMessages && historyMessages.length > 0) {
+        state.messages = historyMessages;
+        notify();
+      }
+      return id;
+    },
+
+    async listHistory() {
+      if (window.__TAURI__?.core?.invoke) {
+        return await window.__TAURI__.core.invoke("list_history_sessions");
+      }
+      return [];
+    },
+
+    async deleteHistory(path) {
+      if (window.__TAURI__?.core?.invoke) {
+        return await window.__TAURI__.core.invoke("delete_history_session", { path });
+      }
+      return false;
+    },
+
+    async toggleArchiveHistory(path) {
+      if (window.__TAURI__?.core?.invoke) {
+        return await window.__TAURI__.core.invoke("toggle_archive_history_session", { path });
+      }
+      return null;
     },
 
     /** Switch the active tab. Resets state and re-fetches from the session's omp. */

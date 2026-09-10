@@ -38,15 +38,38 @@ function InlinePlan({ plan }) {
 }
 
 function AssistantBubble({ msg, idx, highlighted, annotable, annotations, onAnnotate }) {
+  const tweaks = React.useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("omp-desktop:tweaks") || "{}");
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const aiName = tweaks.aiName?.trim();
+  const aiAvatar = tweaks.aiAvatar?.trim();
+  const rawName = aiName || (msg.model ?? "OMP");
+  const displayName = rawName.replace(/\s*\(.*?\)\s*/g, "").trim() || "OMP";
   return (
     <div className={`row assistant fade-up${highlighted ? " mm-hot" : ""}`} data-msg-idx={idx}>
       <div className="ass-rail">
-        <div className="ass-glyph"><_ChatIcon name="sparkle" size={11} color="var(--accent)" /></div>
+        <div className="ass-glyph" style={{ overflow: "hidden" }}>
+          {aiAvatar ? (
+            <img
+              src={aiAvatar}
+              alt=""
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              onError={(e) => { e.target.style.display = "none"; }}
+            />
+          ) : (
+            <_ChatIcon name="sparkle" size={11} color="var(--accent)" />
+          )}
+        </div>
         <div className="ass-thread" />
       </div>
       <div className="ass-body">
         <div className="ass-meta">
-          <span className="mono" style={{ color: "var(--accent)" }}>{msg.model ?? "–"}</span>
+          <span className="mono" style={{ color: "var(--accent)" }}>{displayName}</span>
           <span className="chip muted">{msg.time}</span>
           {msg.lead === "thinking" && (
             <span className="chip" style={{ color: "var(--lilac)", borderColor: "color-mix(in oklab, var(--lilac) 30%, var(--line))" }}>

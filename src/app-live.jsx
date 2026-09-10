@@ -14,15 +14,14 @@
    declarations, handlers, and the render tree.
    ═════════════════════════════════════════════════════════════════════ */
 
-const {
-  Icon, ChatView, Composer, CommandBridge, WindowChrome, TabBar,
-  StatusBar, AmbientRail, PlanKanban, useTweaks,
-  TweaksPanel, TweakSection, TweakRadio, TweakToggle, TweakColor, TweakSlider,
-  TWEAK_DEFAULTS, NULL_MODEL, EMPTY_PROJECT, NULL_PEER,
-  INTENT_FRAMING, APPROVAL_PROMPT,
-  useBridgeSnapshot, useThemeEffect, useCommandShortcut, timeNow,
-} = window;
-
+(function () {
+  const {
+    Icon, ChatView, Composer, CommandBridge, WindowChrome, TabBar,
+    StatusBar, AmbientRail, PlanKanban, useTweaks, ModelsModal, HistoryModal,
+    TweaksPanel, TweakSection, TweakRadio, TweakToggle, TweakColor, TweakSlider, TweakText, TweakImageUpload,
+    INTENT_FRAMING, APPROVAL_PROMPT,
+    useBridgeSnapshot, useThemeEffect, useCommandShortcut, timeNow,
+  } = window;
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const data          = window.OMP_DATA;
@@ -33,6 +32,8 @@ function App() {
   const [bridgeView, setBridgeView] = React.useState("commands");
   const [planOpen,   setPlanOpen]   = React.useState(false);
   const [planMode,   setPlanMode]   = React.useState(false);
+  const [modelsModalOpen, setModelsModalOpen] = React.useState(false);
+  const [historyModalOpen, setHistoryModalOpen] = React.useState(false);
   const planStartedRef = React.useRef(false); // true after first send in plan mode
   const [planAnnotations, setPlanAnnotations] = React.useState({});
   const handleAnnotate = React.useCallback((idx, value) => setPlanAnnotations(prev => {
@@ -50,9 +51,10 @@ function App() {
   };
 
   // ── Live data (all per-session — driven by OMP_BRIDGE.onUpdate) ───────────
-  const [messages,      setMessages]      = React.useState([]);
-  const [streaming,     setStreaming]     = React.useState(false);
-  const [model,         setModelState]    = React.useState(NULL_MODEL);
+  const [messages,            setMessages]            = React.useState([]);
+  const [streaming,           setStreaming]           = React.useState(false);
+  const [isWaitingFirstToken, setIsWaitingFirstToken] = React.useState(false);
+  const [model,               setModelState]          = React.useState(NULL_MODEL);
   const [thinkingLevel, setThinkingLevel] = React.useState(null);
   const [ctx,           setCtx]           = React.useState(data.ctx);
   const [kanban,        setKanban]        = React.useState([]);
@@ -69,7 +71,7 @@ function App() {
 
   // ── Cross-cutting effects (bridge subscription, theme, ⌘K) ────────────────
   useBridgeSnapshot(bridge, {
-    setMessages, setStreaming, setCtx, setKanban, setPlanMeta,
+    setMessages, setStreaming, setIsWaitingFirstToken, setCtx, setKanban, setPlanMeta,
     setModels, setActivity, setSparkline,
     setModelState, setThinkingLevel,
     setSessions, setActiveSessionId,
@@ -104,6 +106,7 @@ function App() {
     const hasAnnotations = Object.keys(planAnnotations).length > 0;
     if (!text.trim() && !hasAnnotations) return;
     let msg = text.trim();
+    let displayMsg = msg; // Text to show in the UI user message bubble
     if (planMode) {
       if (hasAnnotations) {
         // Feedback with block comments — always takes priority over intent framing
@@ -115,20 +118,31 @@ function App() {
           }).join('\n\n');
         const parts = ['Line comments:\n' + lineComments, text.trim()].filter(Boolean);
         msg = parts.join('\n\n');
+        displayMsg = msg;
         setPlanAnnotations({});
         planStartedRef.current = true; // annotations imply plan is already in progress
       } else if (!planStartedRef.current) {
         // First clean send — wrap in intent framing
         planStartedRef.current = true;
         msg = INTENT_FRAMING(text.trim());
+        displayMsg = msg;
       }
     }
-    if (streaming) {
-      bridge?.steer(msg);
-    } else if (bridge?.isConnected) {
-      bridge.send(msg);
+
+    // If custom prefix prompt is enabled, prepend to actual payload but keep displayMsg clean
+    if (t.prefixEnabled && t.customPrefix && t.customPrefix.trim()) {
+      msg = `${t.customPrefix.trim()}\n\n${msg}`;
+    }
+
+    if (bridge?.isConnected) {
+      if (streaming) {
+        bridge.steer(msg, displayMsg);
+      } else {
+        bridge.send(msg, undefined, displayMsg);
+      }
     } else {
-      setMessages(prev => [...prev, { kind: "user", time: timeNow(), text: msg }]);
+      setMessages(prev => [...prev, { kind: "user", time: timeNow(), text: displayMsg }]);
+      setIsWaitingFirstToken(true);
     }
   };
 
@@ -160,6 +174,7 @@ function App() {
     else if (c.name === "thinking") { cycleThinking(); }
     else if (c.name === "model")    { openBridge("models"); }
     else if (c.name === "login")    { openBridge("login"); }
+    else if (c.name === "settings") { setModelsModalOpen(true); }
     else if (c.name === "new")      { bridge?.newSession(); }
   };
 
@@ -205,6 +220,8 @@ function App() {
             project={activeProject}
             peer={safePeer}
             onCmd={() => setBridgeOpen(true)}
+            onSettings={() => setModelsModalOpen(true)}
+            onHistory={() => setHistoryModalOpen(true)}
           />
           <TabBar
             projects={sessions}
@@ -223,6 +240,7 @@ function App() {
                 onAnnotate={handleAnnotate}
                 onAskAnswer={handleAskAnswer}
                 hoveredMsgIdx={hoveredMsgIdx}
+                isWaitingFirstToken={isWaitingFirstToken}
               />
               <Composer
                 onSend={handleSend}
@@ -232,6 +250,8 @@ function App() {
                   setPlanMode(next);
                   if (!next) planStartedRef.current = false;
                 }}
+                prefixEnabled={t.prefixEnabled ?? false}
+                onTogglePrefix={() => setTweak("prefixEnabled", !t.prefixEnabled)}
                 onOpenCmd={() => openBridge("commands")}
                 onOpenModel={() => openBridge("models")}
                 currentModel={model}
@@ -328,6 +348,12 @@ function App() {
           <TweakSlider label="font size" value={t.fontSize ?? 100}
             min={75} max={150} step={5} unit="%"
             onChange={v => setTweak("fontSize", v)} />
+          <TweakImageUpload label="Background Image" value={t.bgImage ?? ""}
+            onChange={v => setTweak("bgImage", v)} />
+          {t.bgImage && (
+            <TweakSlider label="BG Opacity" value={t.bgOpacity ?? 60} min={10} max={100} step={5} unit="%"
+              onChange={v => setTweak("bgOpacity", v)} />
+          )}
         </TweakSection>
         <TweakSection label="Layout">
           <TweakRadio label="layout" value={t.layout}
@@ -339,10 +365,49 @@ function App() {
             onChange={v => setTweak("layout", v)}
           />
         </TweakSection>
+        <TweakSection label="API & Models">
+          <div style={{ padding: "4px 12px" }}>
+            <button
+              className="btn primary"
+              style={{ width: "100%", justifyContent: "center" }}
+              onClick={() => setModelsModalOpen(true)}
+            >
+              Configure API / Providers
+            </button>
+          </div>
+        </TweakSection>
+        <TweakSection label="Persona (Display Only)">
+          <TweakText label="User Name" value={t.userName ?? "you"} placeholder="e.g. Master, Alice"
+            onChange={v => setTweak("userName", v)} />
+          <TweakImageUpload label="User Avatar" value={t.userAvatar ?? ""}
+            onChange={v => setTweak("userAvatar", v)} />
+          <TweakText label="AI Name" value={t.aiName ?? "OMP"} placeholder="e.g. 可蒂丝, Assistant"
+            onChange={v => setTweak("aiName", v)} />
+          <TweakImageUpload label="AI Avatar" value={t.aiAvatar ?? ""}
+            onChange={v => setTweak("aiAvatar", v)} />
+        </TweakSection>
       </TweaksPanel>
+
+      <ModelsModal
+        isOpen={modelsModalOpen}
+        onClose={() => setModelsModalOpen(false)}
+        tweaks={t}
+        setTweak={setTweak}
+      />
+      <HistoryModal
+        isOpen={historyModalOpen}
+        onClose={() => setHistoryModalOpen(false)}
+        onResumeSession={async (session) => {
+          try {
+            await bridge.resumeSession(session.path, "", session.title);
+          } catch (e) {
+            alert("Failed to resume session: " + e);
+          }
+        }}
+      />
     </>
   );
 }
 
-
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+})();

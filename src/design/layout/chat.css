@@ -20,11 +20,19 @@
 /* assistant left rail with thread */
 .ass-rail {
   position: relative;
-  width: 22px; flex-shrink: 0;
+  width: 45px; flex-shrink: 0;
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   padding-top: 2px;
 }
-.ass-glyph, .tool-glyph {
+.ass-glyph {
+  width: 45px; height: 45px;
+  border-radius: 12px;
+  border: 1.5px solid color-mix(in oklab, var(--accent) 40%, var(--line));
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-elevated);
+  flex-shrink: 0;
+}
+.tool-glyph {
   width: 22px; height: 22px;
   border-radius: 6px;
   border: 1px solid color-mix(in oklab, var(--accent) 40%, var(--line));
@@ -32,7 +40,6 @@
   background: var(--bg-elevated);
   flex-shrink: 0;
 }
-.tool-glyph { border-radius: 6px; }
 .ass-thread {
   flex: 1; width: 1.5px;
   background: linear-gradient(180deg, var(--line-bright), transparent);
@@ -118,6 +125,25 @@
   background: var(--cyan);
   box-shadow: 0 0 0 0 color-mix(in oklab, var(--cyan) 40%, transparent);
   animation: pulseDot 1.4s ease-in-out infinite;
+}
+
+/* ── Immediate thinking placeholder ────────────────────────────────── */
+.thinking-pulse {
+  animation: chipGlow 1.6s ease-in-out infinite alternate;
+}
+@keyframes chipGlow {
+  from { opacity: 0.6; }
+  to   { opacity: 1; box-shadow: 0 0 8px color-mix(in oklab, var(--lilac) 40%, transparent); }
+}
+.thinking-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-top: 4px;
+  background: color-mix(in oklab, var(--lilac) 4%, var(--bg-surface));
+  border: 1px dashed color-mix(in oklab, var(--lilac) 20%, var(--line));
+  border-radius: 8px;
 }
 
 /* ── Tool card ─────────────────────────────────────────────────────── */
@@ -465,4 +491,134 @@
   font-size: var(--d-text-sm);
   color: var(--accent);
   padding: 5px 0;
+}
+
+/* ── Avatar styling ─────────────────────────────────────────────────── */
+.avatar-mini {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* ── Models Modal Dialog Styles ─────────────────────────────────────── */
+.modal-backdrop {
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+.models-modal-card {
+  width: 780px;
+  max-width: 90vw;
+  height: 600px;
+  max-height: 85vh;
+  background: var(--bg-surface);
+  border: 1px solid var(--line-bright);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.models-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-elevated);
+}
+.models-modal-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+.models-sidebar {
+  width: 220px;
+  border-right: 1px solid var(--line);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-window);
+}
+.models-provider-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.models-provider-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: var(--d-text-sm);
+  color: var(--fg-2);
+  transition: background 120ms;
+}
+.models-provider-item:hover {
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
+  color: var(--fg);
+}
+.models-provider-item.active {
+  background: color-mix(in oklab, var(--accent) 15%, transparent);
+  border: 1px solid color-mix(in oklab, var(--accent) 40%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.models-form-pane {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+.models-field-group {
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.models-field-group label {
+  font-size: var(--d-text-xs);
+  font-weight: 500;
+  color: var(--fg-3);
+}
+.models-error {
+  padding: 8px 12px;
+  background: color-mix(in oklab, var(--crimson) 15%, transparent);
+  border: 1px solid var(--crimson);
+  border-radius: 6px;
+  color: var(--crimson);
+  font-size: var(--d-text-sm);
+  margin-bottom: 12px;
+}
+.models-cards-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.model-sub-card {
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg-window);
+  border-radius: 6px;
+}
+.models-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--line);
+  background: var(--bg-elevated);
+}
+  vertical-align: middle;
 }

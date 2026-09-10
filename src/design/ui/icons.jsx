@@ -80,6 +80,7 @@ const TOOL_META = {
   search:  { color: "var(--lilac)",   icon: "search", label: "find" },
   edit:    { color: "var(--accent)",  icon: "diff",   label: "edit" },
   bash:    { color: "var(--amber)",   icon: "bash",   label: "bash" },
+  hub:     { color: "var(--amber)",   icon: "radar",  label: "hub"  },
   write:   { color: "var(--magenta)", icon: "edit",   label: "write" },
   todo:    { color: "var(--lime)",    icon: "plan",  label: "todo"  },
   eval:    { color: "var(--rose)",    icon: "test",  label: "eval"  },

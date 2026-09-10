@@ -240,6 +240,19 @@ input, textarea { font: inherit; color: inherit; background: transparent; border
     radial-gradient(900px 500px at -10% 100%, color-mix(in oklab, var(--magenta) 10%, transparent), transparent 60%),
     var(--bg-app);
   z-index: -1;
+  overflow: hidden;
+}
+.app-backdrop::before {
+  content: "";
+  position: absolute; inset: 0;
+  background-image: var(--custom-bg-image, none);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: var(--custom-bg-opacity, 0);
+  transition: opacity 200ms ease;
+  pointer-events: none;
+  z-index: 1;
 }
 .app-backdrop::after {
   content: ""; position: absolute; inset: 0;
@@ -247,8 +260,36 @@ input, textarea { font: inherit; color: inherit; background: transparent; border
   opacity: var(--grain-opacity);
   mix-blend-mode: overlay;
   pointer-events: none;
+  z-index: 2;
 }
 
+/* When custom background is active: make window, chat and session translucent so image shows through cleanly */
+.has-custom-bg .app-backdrop::after {
+  display: none; /* remove grain overlay when custom background is used to keep image crisp */
+}
+.has-custom-bg .app-backdrop {
+  background: var(--bg-app); /* Remove gradient wash when custom image is active */
+}
+.has-custom-bg .window {
+  background: color-mix(in oklab, var(--bg-window) calc((1 - var(--custom-bg-opacity, 0.6)) * 80%), transparent) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.has-custom-bg .session,
+.has-custom-bg .chat-scroll,
+.has-custom-bg .stage {
+  background: transparent !important;
+}
+.has-custom-bg .chrome,
+.has-custom-bg .tabs {
+  background: color-mix(in oklab, var(--bg-window) calc((1 - var(--custom-bg-opacity, 0.6) * 0.8) * 60%), transparent) !important;
+}
+.has-custom-bg .rail {
+  background: color-mix(in oklab, var(--bg-window) calc((1 - var(--custom-bg-opacity, 0.6) * 0.8) * 55%), transparent) !important;
+}
+.has-custom-bg .composer-box {
+  background: color-mix(in oklab, var(--bg-surface) calc((1 - var(--custom-bg-opacity, 0.6) * 0.5) * 85%), transparent) !important;
+}
 /* ── Phosphor scan-line treatment ─────────────────────────────────────── */
 .theme-phosphor .scanlines::before {
   content: ""; position: absolute; inset: 0; pointer-events: none;
