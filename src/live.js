@@ -754,11 +754,11 @@
           msgs[idx]     = updated;
           state.messages = msgs;
           activeToolCards.delete(ev.toolCallId);
-          if (ev.toolName === "todo_write") {
+          if (ev.toolName === "todo" || ev.toolName === "todo_write") {
             const phases = ev.result?.details?.phases ?? ev.result?.phases ?? [];
+            state.kanban   = window.buildKanban(phases);
+            state.planMeta = window.buildPlanMeta(phases, state.rpcState);
             if (phases.length > 0) {
-              state.kanban   = window.buildKanban(phases);
-              state.planMeta = window.buildPlanMeta(phases, state.rpcState);
               _injectInlinePlan(phases);
             }
           }
@@ -822,7 +822,7 @@
     if (rpcState.model && state.models.length > 0) {
       state.models = state.models.map(m => ({ ...m, current: m.id === rpcState.model.id }));
     }
-    if (rpcState.todoPhases?.length > 0) {
+    if (Array.isArray(rpcState.todoPhases)) {
       state.kanban   = window.buildKanban(rpcState.todoPhases);
       state.planMeta = window.buildPlanMeta(rpcState.todoPhases, rpcState);
     }

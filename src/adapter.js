@@ -9,7 +9,7 @@
   // Maps omp tool names → design TOOL_META keys (ui.jsx)
   const TOOL_NAME_MAP = {
     read: "read", search: "search", edit: "edit", bash: "bash", hub: "hub",
-    write: "write", todo_write: "todo", find: "search",
+    write: "write", todo: "todo", todo_write: "todo", find: "search",
     web_search: "search", lsp: "search",
     eval: "eval", task: "task", quick_task: "task", debug: "debug", ask: "ask",
   };

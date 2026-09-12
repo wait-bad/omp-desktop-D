@@ -17,6 +17,7 @@ function useBridgeSnapshot(bridge, setters) {
       setters.setMessages(snap.messages);
       setters.setStreaming(snap.isStreaming);
       if (setters.setIsWaitingFirstToken) setters.setIsWaitingFirstToken(!!snap.isWaitingFirstToken);
+      setters.setKanban(snap.kanban);
       setters.setCtx(snap.ctx);
       setters.setPlanMeta(snap.planMeta);
       setters.setModels(snap.models);
