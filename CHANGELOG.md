@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-09-13
+
+### Added
+
+- One-click "scroll to latest" button — a floating chevron appears whenever the user scrolls away from the bottom, jumping smoothly back to the newest message.
+
+### Fixed
+
+- Ask tool stuck / unclickable — an `extension_ui_request.select` bubble buffered waiting for a `tool_execution_start` that never arrived (e.g. ask-only turns) blocked the whole ask flow. A 200ms fallback now flushes the pending bubble so it always renders and stays interactive. Option buttons also capture the click reliably (`type="button"`, `preventDefault`/`stopPropagation`) and echo the picked value immediately via local `submittedVal` state instead of waiting on the round-trip.
+- Cannot hover-highlight context — `onScroll` now throttles through `requestAnimationFrame`, and the auto-scroll effect only follows the tail when the user is already at the bottom, so scroll-tracking no longer fights the minimap cross-highlight.
+- Slow context loading — `.chat-scroll` gets `contain: layout` + `will-change: scroll-position`, message rows get `content-visibility: auto` with a retained intrinsic size, and the auto-scroll effect no longer forces a synchronous reflow on every message mutation.
+
 ## [0.1.3] - 2026-09-13
 
 ### Fixed

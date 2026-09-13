@@ -526,10 +526,8 @@
         return;
       }
       // Agent asks the user to pick from a list.
-      // Buffered in pendingAskBubble instead of pushed immediately — omp emits
-      // extension_ui_request.select BEFORE tool_execution_start, so pushing now
-      // would place the ask bubble above the tool card. tool_execution_start
-      // flushes it so the order is always [tool_card, ask_bubble].
+      // Buffered in pendingAskBubble or pushed immediately.
+      // If tool_execution_start doesn't flush it within 200ms, push it anyway so it never blocks.
       if (ev.method === "select") {
         const OTHER_OPT = "Other (type your own)";
         pendingAskBubble = {
@@ -542,6 +540,13 @@
           cancelled: false,
           answer: null,
         };
+        setTimeout(() => {
+          if (pendingAskBubble && pendingAskBubble.id === ev.id) {
+            state.messages = [...state.messages, pendingAskBubble];
+            pendingAskBubble = null;
+            notify();
+          }
+        }, 200);
         return;
       }
       // Agent cancelled a pending UI request (e.g. turn aborted while waiting for input).
@@ -1029,7 +1034,6 @@
      * Respond to a pending ask bubble (extension_ui_request method=select).
      * Marks the message as answered in state so it survives subsequent notify() calls,
      * then sends the extension_ui_response to omp.
-     * @param {string} id     The extension_ui_request id.
      * @param {string} value  The chosen option text or custom typed answer.
      */
     answerAsk(id, value) {
@@ -1038,16 +1042,12 @@
           ? { ...m, answered: true, answer: value }
           : m
       );
+      state.isStreaming = true;
+      state.isWaitingFirstToken = true;
       notify();
       _send({ type: "extension_ui_response", id, value });
     },
 
-    /**
-     * Push a system-generated assistant message into the session message log.
-     * Writes to state.messages (not just React state) so it survives subsequent
-     * notify() calls from live event processing (e.g. model registry refresh).
-     * @param {string} text  Markdown text.
-     */
     addAssistantMessage(text) {
       state.messages = [...state.messages, {
         kind: "assistant",

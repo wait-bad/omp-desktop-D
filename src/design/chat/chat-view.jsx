@@ -73,30 +73,39 @@ const CompactRow = React.memo(function CompactRow({ msg }) {
 
 function ChatView({ messages, planMode, annotations, onAnnotate, hoveredMsgIdx, onAskAnswer, isWaitingFirstToken }) {
   const scrollRef    = React.useRef(null);
-  const atBottomRef  = React.useRef(true);   // assume start at bottom
-  const prevCountRef = React.useRef(0);
+  const atBottomRef  = React.useRef(true);   // track whether user is at bottom
+  const [showScrollBottom, setShowScrollBottom] = React.useState(false);
 
-  // Track whether user is near the bottom
+  // Track whether user is near the bottom with rAF throttling for 60fps scrolling
+  const scrollRafRef = React.useRef(null);
   const onScroll = () => {
+    if (scrollRafRef.current) return;
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      const el = scrollRef.current;
+      if (!el) return;
+      const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+      atBottomRef.current = isAtBottom;
+      setShowScrollBottom(!isAtBottom);
+    });
+  };
+  const scrollToBottom = (smooth = true) => {
     const el = scrollRef.current;
     if (!el) return;
-    atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    atBottomRef.current = true;
+    setShowScrollBottom(false);
+    el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
   };
 
-  // Auto-scroll on every messages change
+  // Only auto-scroll if user is ALREADY at the bottom.
+  // Never pull user down when they are inspecting history.
   React.useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const count = messages.length;
-    const newMsg = count > prevCountRef.current;
-    prevCountRef.current = count;
-    // Always scroll when a new message block is added (user sent, agent
-    // started, tool card appeared). During streaming (same count, content
-    // grows) only scroll if already at bottom.
-    if (newMsg || atBottomRef.current) {
+    if (atBottomRef.current) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, isWaitingFirstToken]);
 
   // Only the last completed assistant message is annotatable in plan mode
   let lastAsstIdx = -1;
@@ -107,34 +116,42 @@ function ChatView({ messages, planMode, annotations, onAnnotate, hoveredMsgIdx, 
   }
 
   return (
-    <div className="chat-scroll selectable" ref={scrollRef} onScroll={onScroll}>
-      <div className="chat-pad">
-        {/* Note: after a trim, idx shifts for all surviving messages, causing a full
-           re-render of memo'd bubbles in that notify cycle (bounded at MINIMAP_MAX -
-           MINIMAP_COLS = 156). Streaming re-renders are unaffected. Driving annotable
-           and scroll-targeting off _id instead of idx would make trim zero-cost for
-           history, but requires a larger refactor. */}
-        {messages.map((m, i) => {
-          const hl = hoveredMsgIdx === i;
-          if (m.kind === "user")    return <_CV_UserBubble_M    key={m._id ?? i} idx={i} highlighted={hl} msg={m} />;
-          if (m.kind === "compact") return <CompactRow          key={m._id ?? i} msg={m} />;
-          if (m.kind === "tool")    return <_CV_ToolCard_M      key={m._id ?? i} idx={i} highlighted={hl} msg={m} />;
-          if (m.kind === "ask")     return <_CV_AskBubble_M     key={m._id ?? i} idx={i} highlighted={hl} msg={m} onAnswer={onAskAnswer} />;
-          return <_CV_AssistantBubble_M key={m._id ?? i} idx={i} highlighted={hl} msg={m}
-            annotable={i === lastAsstIdx}
-            annotations={annotations}
-            onAnnotate={onAnnotate} />;
-        })}
-        {isWaitingFirstToken && (
-          <div className="row fade-up" style={{ paddingLeft: 57, alignItems: "center", gap: 10, margin: "6px 0" }}>
-            <span className="pulse-dot" style={{ background: "var(--accent)", width: 6, height: 6 }} />
-            <span className="mono" style={{ color: "var(--fg-3)", fontSize: "var(--d-text-xs)", letterSpacing: "0.02em" }}>
-              thinking...
-            </span>
-          </div>
-        )}
-        <div style={{ height: 24 }} />
+    <div style={{ position: "relative", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+      <div className="chat-scroll selectable" ref={scrollRef} onScroll={onScroll}>
+        <div className="chat-pad">
+          {messages.map((m, i) => {
+            const hl = hoveredMsgIdx === i;
+            if (m.kind === "user")    return <_CV_UserBubble_M    key={m._id ?? i} idx={i} highlighted={hl} msg={m} />;
+            if (m.kind === "compact") return <CompactRow          key={m._id ?? i} msg={m} />;
+            if (m.kind === "tool")    return <_CV_ToolCard_M      key={m._id ?? i} idx={i} highlighted={hl} msg={m} />;
+            if (m.kind === "ask")     return <_CV_AskBubble_M     key={m._id ?? i} idx={i} highlighted={hl} msg={m} onAnswer={onAskAnswer} />;
+            return <_CV_AssistantBubble_M key={m._id ?? i} idx={i} highlighted={hl} msg={m}
+              annotable={i === lastAsstIdx}
+              annotations={annotations}
+              onAnnotate={onAnnotate} />;
+          })}
+          {isWaitingFirstToken && (
+            <div className="row fade-up" style={{ paddingLeft: 57, alignItems: "center", gap: 10, margin: "6px 0" }}>
+              <span className="pulse-dot" style={{ background: "var(--accent)", width: 6, height: 6 }} />
+              <span className="mono" style={{ color: "var(--fg-3)", fontSize: "var(--d-text-xs)", letterSpacing: "0.02em" }}>
+                thinking...
+              </span>
+            </div>
+          )}
+          <div style={{ height: 24 }} />
+        </div>
       </div>
+
+      {showScrollBottom && (
+        <button
+          className="scroll-bottom-btn fade-up"
+          onClick={() => scrollToBottom(true)}
+          title="Scroll to latest"
+          aria-label="Scroll to bottom"
+        >
+          <_CV_Icon name="chev" size={22} />
+        </button>
+      )}
     </div>
   );
 }

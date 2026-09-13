@@ -16,8 +16,12 @@ function AskBubble({ msg, idx, highlighted, onAnswer }) {
   const [custom, setCustom] = React.useState("");
   const done = msg.answered || msg.cancelled;
 
+  const [submittedVal, setSubmittedVal] = React.useState(null);
+  const isDone = done || submittedVal !== null;
+
   const submit = (value) => {
-    if (done) return;
+    if (isDone) return;
+    setSubmittedVal(value);
     onAnswer(msg.id, value);
   };
 
@@ -57,20 +61,26 @@ function AskBubble({ msg, idx, highlighted, onAnswer }) {
         {msg.options.length > 0 && (
           <div className="ask-options">
             {msg.options.map((opt, i) => {
-              const isSelected = msg.answered && msg.answer === opt;
-              const isDimmed   = done && !isSelected;
-              const isDone     = isDoneOption(opt);
+              const currentChoice = submittedVal ?? msg.answer;
+              const isSelected = (msg.answered || submittedVal !== null) && currentChoice === opt;
+              const isDimmed   = isDone && !isSelected;
+              const isDoneTag  = isDoneOption(opt);
               return (
                 <button
                   key={i}
+                  type="button"
                   className={[
                     "ask-opt",
                     isSelected ? "selected" : "",
                     isDimmed   ? "dimmed"   : "",
-                    isDone     ? "done-opt" : "",
+                    isDoneTag  ? "done-opt" : "",
                   ].filter(Boolean).join(" ")}
-                  disabled={done}
-                  onClick={() => submit(opt)}
+                  disabled={isDone}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    submit(opt);
+                  }}
                 >
                   {isSelected && <_AskIcon name="check" size={10} color="var(--accent)" />}
                   {opt}
@@ -88,18 +98,26 @@ function AskBubble({ msg, idx, highlighted, onAnswer }) {
             type="text"
             placeholder="Or type your own answer…"
             value={custom}
-            disabled={done}
+            disabled={isDone}
             onChange={e => setCustom(e.target.value)}
             onKeyDown={handleKey}
           />
-          {!done && custom.trim() && (
-            <button className="ask-submit" onClick={() => submit(custom.trim())}>
+          {!isDone && custom.trim() && (
+            <button
+              type="button"
+              className="ask-submit"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                submit(custom.trim());
+              }}
+            >
               Submit
             </button>
           )}
           {/* Show custom answer inline when the user typed rather than clicked */}
-          {done && msg.answer && !msg.options.includes(msg.answer) && (
-            <span className="ask-custom-echo">{msg.answer}</span>
+          {isDone && (submittedVal || msg.answer) && !msg.options.includes(submittedVal ?? msg.answer) && (
+            <span className="ask-custom-echo">{submittedVal ?? msg.answer}</span>
           )}
         </div>
       </div>
