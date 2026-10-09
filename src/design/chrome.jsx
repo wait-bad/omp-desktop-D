@@ -101,42 +101,14 @@ function TabBar({ projects, activeId, onSelect, onClose, peer, onNew }) {
   );
 }
 
-// ── Status bar (footer): connection, model, tokens, todos, extension ─
-function StatusBar({ ctx, model, thinking, todoDone, todoTotal, onTodo, onModel, onTweaks, autosave, onAutosave }) {
-  const thinkLabel = { off: "off", minimal: "min", low: "low", medium: "med", high: "high", xhigh: "max" }[thinking] ?? "—";
+// ── Status bar (footer): todos, tweaks ────────────────────────────────
+function StatusBar({ todoDone, todoTotal, onTodo, onTweaks }) {
   return (
     <div className="status">
-      <span className="status-cell"><span className="dot live" /> connected</span>
-      <span className="status-sep">·</span>
-      <button className="status-cell btn ghost" onClick={onModel} style={{ height: 20, padding: "0 6px" }}>
-        <span style={{ color: "var(--accent)" }}>{model.name}</span>
-        <Icon name="chev" size={9} color="var(--fg-4)" />
-      </button>
-      <span className="status-sep">·</span>
-      <span className="status-cell"><Icon name="thinking" size={10} color="var(--lilac)" /> {thinkLabel}</span>
-      <span className="status-sep">·</span>
-      <span className="status-cell mono">
-        <span style={{ color: "var(--fg-3)" }}>{ctx.label}</span>
-        <span className="status-bar-tube">
-          <span className="status-bar-fill" style={{ width: `${ctx.pct}%` }} />
-        </span>
-        <span style={{ color: "var(--fg-4)" }}>{(+ctx.pct).toFixed(1)}%</span>
-      </span>
-      <span className="status-sep">·</span>
-      <span className="status-cell mono"><span style={{ color: "var(--fg-3)" }}>cost</span> {ctx.cost}</span>
-      <span className="status-sep">·</span>
-      <span className="status-cell mono"><span style={{ color: "var(--fg-3)" }}>{ctx.tokensPerSec}</span> t/s</span>
       <div style={{ flex: 1 }} />
       <button className="status-cell btn ghost" onClick={onTodo} style={{ height: 20, padding: "0 6px" }}>
         <Icon name="plan" size={11} color="var(--accent)" />
         <span style={{ color: "var(--accent)" }}>todo {todoDone}/{todoTotal}</span>
-      </button>
-      <span className="status-sep">·</span>
-      <button className="status-cell btn ghost" onClick={() => onAutosave?.(!autosave)}
-        style={{ height: 20, padding: "0 6px" }} title="toggle autosave">
-        <span className="mono" style={{ color: autosave ? "var(--fg-3)" : "var(--fg-5)" }}>
-          autosave {autosave ? "on" : "off"}
-        </span>
       </button>
       <span className="status-sep">·</span>
       <button className="status-cell btn ghost" onClick={onTweaks} title="tweaks" style={{ height: 20, padding: "0 6px" }}>

@@ -102,9 +102,10 @@ function App() {
   );
 
   // ── Handlers ──────────────────────────────────────────────────────────────
-  const handleSend = text => {
+  const handleSend = (text, images) => {
     const hasAnnotations = Object.keys(planAnnotations).length > 0;
-    if (!text.trim() && !hasAnnotations) return;
+    const hasImages = Array.isArray(images) && images.length > 0;
+    if (!text.trim() && !hasAnnotations && !hasImages) return;
     let msg = text.trim();
     let displayMsg = msg; // Text to show in the UI user message bubble
     if (planMode) {
@@ -134,14 +135,16 @@ function App() {
       msg = `${t.customPrefix.trim()}\n\n${msg}`;
     }
 
+    const payloadImages = hasImages ? images.map(img => ({ data: img.data, mimeType: img.mimeType })) : undefined;
+
     if (bridge?.isConnected) {
       if (streaming) {
         bridge.steer(msg, displayMsg);
       } else {
-        bridge.send(msg, undefined, displayMsg);
+        bridge.send(msg, payloadImages, displayMsg);
       }
     } else {
-      setMessages(prev => [...prev, { kind: "user", time: timeNow(), text: displayMsg }]);
+      setMessages(prev => [...prev, { kind: "user", time: timeNow(), text: displayMsg, images: hasImages ? images : undefined }]);
       setIsWaitingFirstToken(true);
     }
   };
@@ -265,16 +268,10 @@ function App() {
                 onPick={handleCommand}
               />
               <StatusBar
-                ctx={liveCtx}
-                model={model}
-                thinking={thinkingLevel}
                 todoDone={todoCounts.done}
                 todoTotal={todoCounts.total}
                 onTodo={() => setPlanOpen(true)}
-                onModel={() => openBridge("models")}
                 onTweaks={() => window.postMessage({ type: '__activate_edit_mode' }, '*')}
-                autosave={t.autosave ?? true}
-                onAutosave={v => setTweak("autosave", v)}
               />
             </main>
 

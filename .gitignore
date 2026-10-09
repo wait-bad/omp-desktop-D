@@ -40,3 +40,10 @@ docs/superpowers/
 
 # ── Nucleus MCP index (local tool state) ─────────────────────────────────────
 .nucleus/
+
+# ── Local speech / WIP artefacts (do not commit) ──────────────────────────────
+/bin/
+/sensevoice_model/
+/src-tauri/sapi_helper.exe
+/src-tauri/src/sapi_speech.rs
+*.onnx

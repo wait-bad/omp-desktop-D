@@ -9,6 +9,8 @@ mod git;
 mod git_watcher;
 mod history;
 mod mcp_skill;
+mod sensevoice_speech;
+use sensevoice_speech::SenseVoiceState;
 use agent::AgentBridge;
 use git_watcher::GitWatcherState;
 use tauri::{Manager, State};
@@ -245,6 +247,124 @@ fn save_system_prompt(content: String) -> Result<(), String> {
     mcp_skill::save_system_prompt(&content)
 }
 
+#[cfg(target_os = "windows")]
+fn hide_windows_input_experience_window() {
+    use std::ffi::c_void;
+    type HWND = *mut c_void;
+    type HRGN = *mut c_void;
+    type BOOL = i32;
+    type LPARAM = isize;
+
+    extern "system" {
+        fn EnumWindows(lpEnumFunc: unsafe extern "system" fn(HWND, LPARAM) -> BOOL, lParam: LPARAM) -> BOOL;
+        fn GetClassNameW(hWnd: HWND, lpClassName: *mut u16, nMaxCount: i32) -> i32;
+        fn GetWindowTextW(hWnd: HWND, lpString: *mut u16, nMaxCount: i32) -> i32;
+        fn GetWindowLongW(hWnd: HWND, nIndex: i32) -> i32;
+        fn SetWindowLongW(hWnd: HWND, nIndex: i32, dwNewLong: i32) -> i32;
+        fn SetLayeredWindowAttributes(hWnd: HWND, crKey: u32, bAlpha: u8, dwFlags: u32) -> BOOL;
+        fn SetWindowPos(
+            hWnd: HWND,
+            hWndInsertAfter: HWND,
+            X: i32,
+            Y: i32,
+            cx: i32,
+            cy: i32,
+            uFlags: u32,
+        ) -> BOOL;
+        fn CreateRectRgn(x1: i32, y1: i32, x2: i32, y2: i32) -> HRGN;
+        fn SetWindowRgn(hWnd: HWND, hRgn: HRGN, bRedraw: BOOL) -> i32;
+        fn ShowWindow(hWnd: HWND, nCmdShow: i32) -> BOOL;
+    }
+
+    unsafe extern "system" fn enum_proc(hwnd: HWND, _lparam: LPARAM) -> BOOL {
+        let mut cls_buf = [0u16; 256];
+        let len = GetClassNameW(hwnd, cls_buf.as_mut_ptr(), 256);
+        if len > 0 {
+            let cls = String::from_utf16_lossy(&cls_buf[..len as usize]);
+            if cls == "Windows.UI.Core.CoreWindow" {
+                let mut title_buf = [0u16; 256];
+                let tlen = GetWindowTextW(hwnd, title_buf.as_mut_ptr(), 256);
+                let title = if tlen > 0 {
+                    String::from_utf16_lossy(&title_buf[..tlen as usize])
+                } else {
+                    String::new()
+                };
+                let low = title.to_lowercase();
+                if title.contains("输入") || low.contains("experience") || low.contains("dictation") || low.contains("input") {
+                    // 1. 终极一击：ShowWindow(SW_HIDE = 0) 直接从桌面视窗渲染管线中剔除
+                    ShowWindow(hwnd, 0);
+
+                    // 2. 几何裁剪区域置空 (SetWindowRgn 0x0)
+                    let empty_rgn = CreateRectRgn(0, 0, 0, 0);
+                    let _ = SetWindowRgn(hwnd, empty_rgn, 1);
+
+                    // 3. 分层透明 + 点击穿透 (WS_EX_LAYERED + WS_EX_TRANSPARENT + Alpha=0)
+                    const GWL_EXSTYLE: i32 = -20;
+                    const WS_EX_LAYERED: i32 = 0x0008_0000;
+                    const WS_EX_TRANSPARENT: i32 = 0x0000_0020;
+                    const LWA_ALPHA: u32 = 0x2;
+                    let style = GetWindowLongW(hwnd, GWL_EXSTYLE);
+                    let _ = SetWindowLongW(hwnd, GWL_EXSTYLE, style | WS_EX_LAYERED | WS_EX_TRANSPARENT);
+                    let _ = SetLayeredWindowAttributes(hwnd, 0, 0, LWA_ALPHA);
+
+                    // 4. 物理坐标移出屏幕 (-10000, -10000)
+                    const FLAGS: u32 = 0x0001 | 0x0004 | 0x0010;
+                    let _ = SetWindowPos(hwnd, std::ptr::null_mut(), -10000, -10000, 0, 0, FLAGS);
+                }
+            }
+        }
+        1
+    }
+
+    unsafe {
+        EnumWindows(enum_proc, 0);
+    }
+}
+
+/// Trigger Windows native Speech-to-Text dictation overlay (Win + H) and move the overlay offscreen
+#[tauri::command]
+fn trigger_windows_dictation() -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        extern "system" {
+            fn keybd_event(b_vk: u8, b_scan: u8, dw_flags: u32, dw_extra_info: usize);
+        }
+        unsafe {
+            // VK_LWIN = 0x5B, VK_H = 0x48, KEYEVENTF_KEYUP = 0x0002
+            keybd_event(0x5B, 0, 0, 0);
+            keybd_event(0x48, 0, 0, 0);
+            keybd_event(0x48, 0, 2, 0);
+            keybd_event(0x5B, 0, 2, 0);
+        }
+
+        // Spawn a daemon thread to silently relocate TextInputHost CoreWindow offscreen
+        std::thread::spawn(|| {
+            for _ in 0..30 {
+                std::thread::sleep(std::time::Duration::from_millis(80));
+                hide_windows_input_experience_window();
+            }
+        });
+    }
+    Ok(())
+}
+
+/// Stop Windows native dictation (send ESC to cancel dictation)
+#[tauri::command]
+fn stop_windows_dictation() -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        extern "system" {
+            fn keybd_event(b_vk: u8, b_scan: u8, dw_flags: u32, dw_extra_info: usize);
+        }
+        unsafe {
+            // Send Escape key (VK_ESCAPE = 0x1B) to cancel dictation
+            keybd_event(0x1B, 0, 0, 0);
+            keybd_event(0x1B, 0, 2, 0);
+        }
+    }
+    Ok(())
+}
+
 
 ///
 /// Panics if `tauri::Builder::run` returns an error (e.g. the webview
@@ -255,6 +375,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(AgentBridge::new())
         .manage(GitWatcherState::new())
+        .manage(SenseVoiceState::new())
         .invoke_handler(tauri::generate_handler![
             send_command,
             start_session,
@@ -277,6 +398,9 @@ pub fn run() {
             set_skills_master_enabled,
             get_system_prompt,
             save_system_prompt,
+            trigger_windows_dictation,
+            stop_windows_dictation,
+            sensevoice_speech::transcribe_sensevoice,
         ])
         .setup(|app| {
             // Devtools can still be opened manually or enabled if needed

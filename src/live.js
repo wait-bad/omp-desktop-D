@@ -900,7 +900,12 @@
 
     // ── Messaging ────────────────────────────────────────────────────────────
     send(text, images, displayText) {
-      const userMsg = { kind: "user", time: timeNow(), text: displayText !== undefined ? displayText : text };
+      const userMsg = {
+        kind: "user",
+        time: timeNow(),
+        text: displayText !== undefined ? displayText : text,
+        images: (images && images.length > 0) ? images : undefined,
+      };
       state.isStreaming = true;
       state.isWaitingFirstToken = true;
       streamingBubble = null;

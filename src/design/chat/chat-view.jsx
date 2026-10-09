@@ -72,41 +72,120 @@ const CompactRow = React.memo(function CompactRow({ msg }) {
 });
 
 function ChatView({ messages, planMode, annotations, onAnnotate, hoveredMsgIdx, onAskAnswer, isWaitingFirstToken }) {
-  const scrollRef    = React.useRef(null);
-  const atBottomRef  = React.useRef(true);   // track whether user is at bottom
+  const scrollRef               = React.useRef(null);
+  const userHoveringRef         = React.useRef(false); // 用户是否主动向上滚动悬停查看历史
+  const lastScrollTopRef        = React.useRef(0);     // 记录上次滚动位置，用于识别真实向上翻动
+  const isProgrammaticScrollRef = React.useRef(false); // 标记是否为程序触发的滚动
+  const prevMsgLenRef           = React.useRef(messages.length);
   const [showScrollBottom, setShowScrollBottom] = React.useState(false);
-
-  // Track whether user is near the bottom with rAF throttling for 60fps scrolling
-  const scrollRafRef = React.useRef(null);
-  const onScroll = () => {
-    if (scrollRafRef.current) return;
-    scrollRafRef.current = requestAnimationFrame(() => {
-      scrollRafRef.current = null;
+  // 监听用户鼠标滚轮交互：向上滚轮立即进入悬停保护，向下滚到底部解除保护
+  const onWheel = (e) => {
+    if (e.deltaY < 0) {
+      // 用户主动向上滑滚轮，进入悬停保护模式
+      userHoveringRef.current = true;
+      setShowScrollBottom(true);
+    } else if (e.deltaY > 0) {
       const el = scrollRef.current;
-      if (!el) return;
-      const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-      atBottomRef.current = isAtBottom;
-      setShowScrollBottom(!isAtBottom);
-    });
+      if (el) {
+        const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+        if (distFromBottom <= 100) {
+          userHoveringRef.current = false;
+          setShowScrollBottom(false);
+        }
+      }
+    }
   };
+
+  // 监听触摸滑动（触控板或触屏交互）
+  const onTouchMove = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (distFromBottom > 120 && el.scrollTop < lastScrollTopRef.current - 5) {
+      userHoveringRef.current = true;
+      setShowScrollBottom(true);
+    }
+  };
+
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const currentTop = el.scrollTop;
+    const distFromBottom = el.scrollHeight - currentTop - el.clientHeight;
+
+    if (!isProgrammaticScrollRef.current) {
+      // 只有在用户主动向上拖动滚动条（scrollTop 明确减小且已远离底部）时，才标记悬停
+      if (currentTop < lastScrollTopRef.current - 15 && distFromBottom > 120) {
+        userHoveringRef.current = true;
+        setShowScrollBottom(true);
+      } else if (distFromBottom <= 80) {
+        // 用户滚动回到了最底部
+        userHoveringRef.current = false;
+        setShowScrollBottom(false);
+      }
+    }
+
+    lastScrollTopRef.current = currentTop;
+  };
+
+  // 一键到底保障机制：多帧对齐保证 100% 真正到达最底部，彻底根除中途停顿
   const scrollToBottom = (smooth = true) => {
     const el = scrollRef.current;
     if (!el) return;
-    atBottomRef.current = true;
+    userHoveringRef.current = false;
     setShowScrollBottom(false);
+    isProgrammaticScrollRef.current = true;
+
     el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
+
+    // 追踪多帧校准：在平滑滚动或异步 DOM 排版变动后再次严密校准到底部
+    let frames = 0;
+    const ensureBottom = () => {
+      if (!el || userHoveringRef.current) {
+        isProgrammaticScrollRef.current = false;
+        return;
+      }
+      if (el.scrollHeight - el.scrollTop - el.clientHeight > 2) {
+        el.scrollTop = el.scrollHeight;
+      }
+      if (++frames < 18) {
+        requestAnimationFrame(ensureBottom);
+      } else {
+        isProgrammaticScrollRef.current = false;
+      }
+    };
+    requestAnimationFrame(ensureBottom);
   };
 
-  // Only auto-scroll if user is ALREADY at the bottom.
-  // Never pull user down when they are inspecting history.
+  // 智能自动吸底：在流式吐字或新消息到来时，只要用户没有主动向上悬停，就稳稳吸在最底部
   React.useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    if (atBottomRef.current) {
+
+    // 当用户发送了新消息时，无论之前是否悬停，立刻解除悬停并贴底
+    if (messages.length > prevMsgLenRef.current) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg?.kind === "user") {
+        userHoveringRef.current = false;
+        setShowScrollBottom(false);
+      }
+    }
+    prevMsgLenRef.current = messages.length;
+
+    if (!userHoveringRef.current) {
+      isProgrammaticScrollRef.current = true;
       el.scrollTop = el.scrollHeight;
+      lastScrollTopRef.current = el.scrollTop;
+      // 在下一帧再次确认对齐，防止刚追加的 DOM 产生次微秒级重排
+      requestAnimationFrame(() => {
+        if (el && !userHoveringRef.current) {
+          el.scrollTop = el.scrollHeight;
+          lastScrollTopRef.current = el.scrollTop;
+        }
+        isProgrammaticScrollRef.current = false;
+      });
     }
   }, [messages, isWaitingFirstToken]);
-
   // Only the last completed assistant message is annotatable in plan mode
   let lastAsstIdx = -1;
   if (planMode) {
@@ -117,7 +196,7 @@ function ChatView({ messages, planMode, annotations, onAnnotate, hoveredMsgIdx, 
 
   return (
     <div style={{ position: "relative", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-      <div className="chat-scroll selectable" ref={scrollRef} onScroll={onScroll}>
+      <div className="chat-scroll selectable" ref={scrollRef} onScroll={onScroll} onWheel={onWheel} onTouchMove={onTouchMove}>
         <div className="chat-pad">
           {messages.map((m, i) => {
             const hl = hoveredMsgIdx === i;

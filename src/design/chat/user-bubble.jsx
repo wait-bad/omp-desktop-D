@@ -20,7 +20,19 @@ function UserBubble({ msg, idx, highlighted }) {
           <span className="mono" style={{ color: "var(--fg-4)" }}>{msg.time}</span>
           <span className="chip muted">{userName}</span>
         </div>
-        <div className="user-text">{msg.text}</div>
+        {msg.images && msg.images.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: msg.text ? 8 : 0 }}>
+            {msg.images.map((img, i) => (
+              <img
+                key={i}
+                src={typeof img === "string" ? img : (img.url || (img.data ? `data:${img.mimeType || "image/png"};base64,${img.data}` : ""))}
+                alt=""
+                style={{ maxWidth: 200, maxHeight: 150, borderRadius: 8, objectFit: "cover", border: "1px solid var(--line)" }}
+              />
+            ))}
+          </div>
+        )}
+        {msg.text ? <div className="user-text">{msg.text}</div> : null}
       </div>
       <div className="user-rail" style={{ flexShrink: 0, width: 45, height: 45, borderRadius: "50%", overflow: "hidden", border: "1.5px solid var(--accent)", background: "var(--bg-elevated)", display: "flex", alignItems: "center", justifyContent: "center" }}>
         {userAvatar ? (
