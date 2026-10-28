@@ -11,8 +11,10 @@ mod history;
 mod mcp_skill;
 mod sensevoice_speech;
 use sensevoice_speech::SenseVoiceState;
+mod power_metrics;
 use agent::AgentBridge;
 use git_watcher::GitWatcherState;
+use power_metrics::{HardwarePowerMetrics, PowerState};
 use tauri::{Manager, State};
 
 /// Write a JSON command to a specific session's omp stdin.
@@ -36,12 +38,7 @@ fn start_session(
     app: tauri::AppHandle,
 ) -> Result<(), String> {
     let cwd_opt = if cwd.is_empty() { None } else { Some(cwd) };
-    bridge.start_session(
-        session_id,
-        cwd_opt.as_deref(),
-        resume_path.as_deref(),
-        app,
-    )
+    bridge.start_session(session_id, cwd_opt.as_deref(), resume_path.as_deref(), app)
 }
 
 /// Kill the omp process for a tab session.
@@ -157,12 +154,11 @@ fn load_models_config() -> Result<String, String> {
     if !path.exists() {
         return Ok("{}".to_string());
     }
-    let content = std::fs::read_to_string(&path)
-        .map_err(|e| format!("Failed to read models.yml: {e}"))?;
-    let val: serde_yaml::Value = serde_yaml::from_str(&content)
-        .map_err(|e| format!("Invalid YAML format: {e}"))?;
-    serde_json::to_string(&val)
-        .map_err(|e| format!("Failed to convert YAML to JSON: {e}"))
+    let content =
+        std::fs::read_to_string(&path).map_err(|e| format!("Failed to read models.yml: {e}"))?;
+    let val: serde_yaml::Value =
+        serde_yaml::from_str(&content).map_err(|e| format!("Invalid YAML format: {e}"))?;
+    serde_json::to_string(&val).map_err(|e| format!("Failed to convert YAML to JSON: {e}"))
 }
 
 /// Save raw YAML or JSON string back to ~/.omp/agent/models.yml safely
@@ -170,13 +166,12 @@ fn load_models_config() -> Result<String, String> {
 fn save_models_config(json: String) -> Result<(), String> {
     let path = get_models_config_path()?;
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create config dir: {e}"))?;
+        std::fs::create_dir_all(parent).map_err(|e| format!("Failed to create config dir: {e}"))?;
     }
-    let val: serde_yaml::Value = serde_json::from_str(&json)
-        .map_err(|e| format!("Invalid JSON received: {e}"))?;
-    let yaml_str = serde_yaml::to_string(&val)
-        .map_err(|e| format!("Failed to serialize to YAML: {e}"))?;
+    let val: serde_yaml::Value =
+        serde_json::from_str(&json).map_err(|e| format!("Invalid JSON received: {e}"))?;
+    let yaml_str =
+        serde_yaml::to_string(&val).map_err(|e| format!("Failed to serialize to YAML: {e}"))?;
 
     // Backup existing file if present
     if path.exists() {
@@ -185,8 +180,7 @@ fn save_models_config(json: String) -> Result<(), String> {
         let _ = std::fs::copy(&path, &bak_path);
     }
 
-    std::fs::write(&path, yaml_str)
-        .map_err(|e| format!("Failed to write models.yml: {e}"))?;
+    std::fs::write(&path, yaml_str).map_err(|e| format!("Failed to write models.yml: {e}"))?;
     Ok(())
 }
 
@@ -246,6 +240,15 @@ fn get_system_prompt() -> Result<String, String> {
 fn save_system_prompt(content: String) -> Result<(), String> {
     mcp_skill::save_system_prompt(&content)
 }
+#[tauri::command]
+fn get_system_md() -> Result<String, String> {
+    mcp_skill::get_system_md()
+}
+
+#[tauri::command]
+fn save_system_md(content: String) -> Result<(), String> {
+    mcp_skill::save_system_md(&content)
+}
 
 #[cfg(target_os = "windows")]
 fn hide_windows_input_experience_window() {
@@ -256,7 +259,10 @@ fn hide_windows_input_experience_window() {
     type LPARAM = isize;
 
     extern "system" {
-        fn EnumWindows(lpEnumFunc: unsafe extern "system" fn(HWND, LPARAM) -> BOOL, lParam: LPARAM) -> BOOL;
+        fn EnumWindows(
+            lpEnumFunc: unsafe extern "system" fn(HWND, LPARAM) -> BOOL,
+            lParam: LPARAM,
+        ) -> BOOL;
         fn GetClassNameW(hWnd: HWND, lpClassName: *mut u16, nMaxCount: i32) -> i32;
         fn GetWindowTextW(hWnd: HWND, lpString: *mut u16, nMaxCount: i32) -> i32;
         fn GetWindowLongW(hWnd: HWND, nIndex: i32) -> i32;
@@ -290,7 +296,11 @@ fn hide_windows_input_experience_window() {
                     String::new()
                 };
                 let low = title.to_lowercase();
-                if title.contains("输入") || low.contains("experience") || low.contains("dictation") || low.contains("input") {
+                if title.contains("输入")
+                    || low.contains("experience")
+                    || low.contains("dictation")
+                    || low.contains("input")
+                {
                     // 1. 终极一击：ShowWindow(SW_HIDE = 0) 直接从桌面视窗渲染管线中剔除
                     ShowWindow(hwnd, 0);
 
@@ -304,7 +314,11 @@ fn hide_windows_input_experience_window() {
                     const WS_EX_TRANSPARENT: i32 = 0x0000_0020;
                     const LWA_ALPHA: u32 = 0x2;
                     let style = GetWindowLongW(hwnd, GWL_EXSTYLE);
-                    let _ = SetWindowLongW(hwnd, GWL_EXSTYLE, style | WS_EX_LAYERED | WS_EX_TRANSPARENT);
+                    let _ = SetWindowLongW(
+                        hwnd,
+                        GWL_EXSTYLE,
+                        style | WS_EX_LAYERED | WS_EX_TRANSPARENT,
+                    );
                     let _ = SetLayeredWindowAttributes(hwnd, 0, 0, LWA_ALPHA);
 
                     // 4. 物理坐标移出屏幕 (-10000, -10000)
@@ -364,18 +378,31 @@ fn stop_windows_dictation() -> Result<(), String> {
     }
     Ok(())
 }
-
+#[tauri::command]
+fn get_hardware_power_metrics(state: State<'_, PowerState>) -> HardwarePowerMetrics {
+    state.read_metrics()
+}
 
 ///
 /// Panics if `tauri::Builder::run` returns an error (e.g. the webview
 /// runtime cannot be initialised). This is a fatal startup condition;
 /// there is no meaningful recovery from inside `main`.
 pub fn run() {
+    #[cfg(target_os = "windows")]
+    {
+        if std::env::var_os("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS").is_none() {
+            std::env::set_var(
+                "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+                "--autoplay-policy=no-user-gesture-required --enable-features=CalculateNativeWinOcclusion,IntensiveWakeUpThrottling,HighPriorityBackgroundThrottling",
+            );
+        }
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(AgentBridge::new())
         .manage(GitWatcherState::new())
         .manage(SenseVoiceState::new())
+        .manage(PowerState::new())
         .invoke_handler(tauri::generate_handler![
             send_command,
             start_session,
@@ -398,9 +425,12 @@ pub fn run() {
             set_skills_master_enabled,
             get_system_prompt,
             save_system_prompt,
+            get_system_md,
+            save_system_md,
             trigger_windows_dictation,
             stop_windows_dictation,
             sensevoice_speech::transcribe_sensevoice,
+            get_hardware_power_metrics,
         ])
         .setup(|app| {
             // Devtools can still be opened manually or enabled if needed
@@ -411,7 +441,8 @@ pub fn run() {
             // session_status on attach and surfaces the cached reason
             // if any — no event timing race, no delayed emit thread.
             let bridge = app.state::<AgentBridge>();
-            if let Err(e) = bridge.start_session("default".into(), None, None, app.handle().clone()) {
+            if let Err(e) = bridge.start_session("default".into(), None, None, app.handle().clone())
+            {
                 eprintln!("[omp-desktop] failed to start default session: {e}");
             }
             Ok(())

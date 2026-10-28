@@ -75,7 +75,10 @@ fn find_sensevoice_cli() -> Option<PathBuf> {
 
 fn find_sensevoice_model() -> Option<(PathBuf, PathBuf)> {
     let subpaths = [
-        ("sensevoice_model/model.int8.onnx", "sensevoice_model/tokens.txt"),
+        (
+            "sensevoice_model/model.int8.onnx",
+            "sensevoice_model/tokens.txt",
+        ),
         ("model.int8.onnx", "tokens.txt"),
     ];
 
@@ -114,23 +117,23 @@ pub async fn transcribe_sensevoice(
     });
 
     let cli_path = find_sensevoice_cli().ok_or_else(|| {
-        "未找到 SenseVoice 执行引擎 (sherpa-onnx-offline.exe)，请检查 bin/sensevoice 目录".to_string()
+        "未找到 SenseVoice 执行引擎 (sherpa-onnx-offline.exe)，请检查 bin/sensevoice 目录"
+            .to_string()
     })?;
 
     let (model_path, tokens_path) = find_sensevoice_model().ok_or_else(|| {
         "未找到 SenseVoice 深度学习模型或 tokens.txt，请检查 sensevoice_model 目录".to_string()
     })?;
 
-    let audio_bytes = decode_base64(&wav_base64)
-        .map_err(|e| format!("Base64 音频解码失败: {e}"))?;
+    let audio_bytes =
+        decode_base64(&wav_base64).map_err(|e| format!("Base64 音频解码失败: {e}"))?;
 
     if audio_bytes.len() < 44 {
         return Err("音频过短，无效的 WAV 格式".to_string());
     }
 
     let temp_wav = std::env::temp_dir().join(format!("omp-sensevoice-{}.wav", std::process::id()));
-    std::fs::write(&temp_wav, &audio_bytes)
-        .map_err(|e| format!("写入临时音频文件失败: {e}"))?;
+    std::fs::write(&temp_wav, &audio_bytes).map_err(|e| format!("写入临时音频文件失败: {e}"))?;
 
     let _clean_temp = defer::Defer::new({
         let p = temp_wav.clone();
@@ -155,15 +158,21 @@ pub async fn transcribe_sensevoice(
         .arg("--num-threads=4")
         .arg(&temp_wav);
 
-    let output = cmd.output().map_err(|e| format!("启动 SenseVoice 引擎失败: {e}"))?;
+    let output = cmd
+        .output()
+        .map_err(|e| format!("启动 SenseVoice 引擎失败: {e}"))?;
 
     if !output.status.success() {
         let err_str = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("SenseVoice 推理失败 (exit {:?}): {}", output.status.code(), err_str));
+        return Err(format!(
+            "SenseVoice 推理失败 (exit {:?}): {}",
+            output.status.code(),
+            err_str
+        ));
     }
 
     let stdout_text = String::from_utf8_lossy(&output.stdout);
-    
+
     // Parse JSON result line: {"lang": "<|zh|>", ..., "text": "..."}
     let mut recognized_text = String::new();
     for line in stdout_text.lines() {

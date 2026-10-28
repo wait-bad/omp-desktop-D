@@ -41,7 +41,6 @@ pub struct HistoryMessage {
     pub streaming: bool,
 }
 
-
 fn get_sessions_root() -> Option<PathBuf> {
     let home = std::env::var("USERPROFILE")
         .or_else(|_| std::env::var("HOME"))
@@ -103,8 +102,11 @@ fn extract_session_info(path: &Path) -> (String, bool) {
                             if let Some(arr) = content.as_array() {
                                 for block in arr {
                                     if block.get("type").and_then(|v| v.as_str()) == Some("text") {
-                                        if let Some(txt) = block.get("text").and_then(|v| v.as_str()) {
-                                            first_user_prompt = txt.trim().chars().take(80).collect();
+                                        if let Some(txt) =
+                                            block.get("text").and_then(|v| v.as_str())
+                                        {
+                                            first_user_prompt =
+                                                txt.trim().chars().take(80).collect();
                                             break;
                                         }
                                     }
@@ -163,12 +165,19 @@ fn scan_dir_recursive(dir: &Path, list: &mut Vec<SessionSummary>) {
                 .map(|d| d.as_secs())
                 .unwrap_or(0);
 
-            let filename = p.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+            let filename = p
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("")
+                .to_string();
             let name_parts: Vec<&str> = filename.split('_').collect();
             let session_id = if name_parts.len() > 1 {
                 name_parts[1].trim_end_matches(".jsonl").to_string()
             } else {
-                p.file_stem().and_then(|s| s.to_str()).unwrap_or("").to_string()
+                p.file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("")
+                    .to_string()
             };
 
             let folder = p
@@ -217,8 +226,13 @@ pub fn toggle_archive_session(path_str: &str) -> Result<String, String> {
         return Err("Session file does not exist".to_string());
     }
 
-    let parent = p.parent().ok_or_else(|| "Invalid parent path".to_string())?;
-    let file_name = p.file_name().and_then(|n| n.to_str()).ok_or_else(|| "Invalid filename".to_string())?;
+    let parent = p
+        .parent()
+        .ok_or_else(|| "Invalid parent path".to_string())?;
+    let file_name = p
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| "Invalid filename".to_string())?;
 
     let new_path = if file_name.contains(".archived.") {
         let restored_name = file_name.replace(".archived.", ".");

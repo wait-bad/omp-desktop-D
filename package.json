@@ -3,12 +3,17 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
+    "build:jsx": "node scripts/build-jsx.mjs",
+    "watch:jsx": "node scripts/build-jsx.mjs --watch",
+    "predev": "node scripts/build-jsx.mjs",
     "dev": "tauri dev",
+    "prebuild": "node scripts/build-jsx.mjs",
     "build": "tauri build",
     "@tauri --build": "tauri build",
     "tauri": "tauri"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2"
+    "@tauri-apps/cli": "^2",
+    "esbuild": "^0.28.2"
   }
 }

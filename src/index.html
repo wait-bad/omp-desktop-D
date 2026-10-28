@@ -15,13 +15,194 @@
   <link rel="stylesheet" href="highlight-theme.css" />
 </head>
 <body>
+  <!-- Instant Video Splash Screen Layer (Paints immediately, before React/Babel loads) -->
+  <div id="splash-layer" style="
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    background: #0d0f12 radial-gradient(circle at center, #1a1e24 0%, #0d0f12 75%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    -webkit-user-select: none;
+    overflow: hidden;
+    transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1), transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  ">
+    <video
+      id="splash-video"
+      src="splash.mp4"
+      autoplay
+      muted
+      playsinline
+      preload="auto"
+      style="
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      "
+    ></video>
+    <div id="splash-skip-hint" style="
+      position: absolute;
+      bottom: 24px;
+      right: 28px;
+      padding: 6px 14px;
+      background: rgba(13, 15, 18, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 999px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      color: rgba(255, 255, 255, 0.8);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 11.5px;
+      letter-spacing: 0.5px;
+      pointer-events: auto;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    ">
+      <span id="splash-skip-text">按任意键跳过</span>
+      <span style="
+        display: inline-block;
+        padding: 1px 5px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 4px;
+        font-size: 10px;
+        font-family: monospace;
+      ">SPACE</span>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const splash = document.getElementById("splash-layer");
+      const video = document.getElementById("splash-video");
+      const skipText = document.getElementById("splash-skip-text");
+      if (!splash || !video) return;
+
+      // ── 1. Check user preferences: Splash enabled? Custom video? ───────
+      let tweaks = {};
+      try {
+        tweaks = JSON.parse(localStorage.getItem("omp-desktop:tweaks") || "{}");
+      } catch (_) {}
+
+      // If user disabled splash screen completely in Settings
+      if (tweaks.splashEnabled === false) {
+        splash.remove();
+        return;
+      }
+
+      // If user uploaded a custom splash video into IndexedDB
+      if (tweaks.splashCustomVideo) {
+        try {
+          const idbReq = indexedDB.open("omp-desktop-media", 1);
+          idbReq.onsuccess = function (e) {
+            const db = e.target.result;
+            if (db.objectStoreNames.contains("assets")) {
+              const getReq = db.transaction("assets", "readonly").objectStore("assets").get("splashVideo");
+              getReq.onsuccess = function () {
+                if (getReq.result && typeof getReq.result === "string") {
+                  video.src = getReq.result;
+                  video.play().catch(function () {});
+                }
+              };
+            }
+          };
+        } catch (_) {}
+      }
+
+      let isDismissed = false;
+      let isAppReady = false;
+      let isVideoFinished = false;
+
+      // Smoothly show video once first frame is ready
+      video.addEventListener("playing", function () {
+        video.style.opacity = "1";
+      });
+      video.addEventListener("canplay", function () {
+        video.play().catch(function () {});
+        video.style.opacity = "1";
+      });
+
+      // If video errors out, fallback dismiss quickly so user is never blocked
+      video.addEventListener("error", function () {
+        isVideoFinished = true;
+        if (isAppReady) dismissSplash();
+      });
+
+      // Called when React root mounts
+      window.__OMP_SPLASH_DISMISS__ = function (immediate) {
+        isAppReady = true;
+        // NEVER kill video during buffering/playing!
+        // Only dismiss if user requested immediate skip, or video finished naturally
+        if (immediate || isVideoFinished) {
+          dismissSplash();
+        }
+      };
+
+      function dismissSplash() {
+        if (isDismissed) return;
+        isDismissed = true;
+        splash.style.opacity = "0";
+        splash.style.transform = "scale(1.015)";
+        splash.style.pointerEvents = "none";
+        setTimeout(function () {
+          try {
+            video.pause();
+            video.src = "";
+            splash.remove();
+          } catch (_) {}
+        }, 480);
+      }
+
+      // When video ends naturally after playing full duration
+      video.addEventListener("ended", function () {
+        isVideoFinished = true;
+        if (isAppReady) {
+          dismissSplash();
+        } else {
+          if (skipText) skipText.textContent = "正在进入工作空间...";
+        }
+      });
+
+      // User skip via keypress or click
+      function onUserSkip(e) {
+        if (isDismissed) return;
+        isVideoFinished = true;
+        if (isAppReady) {
+          dismissSplash();
+        } else {
+          // Fast-forward video to last frame
+          if (video.duration) {
+            video.currentTime = Math.max(0, video.duration - 0.05);
+          }
+          if (skipText) skipText.textContent = "正在接入 Agent 核心...";
+        }
+      }
+
+      window.addEventListener("keydown", onUserSkip, { once: false });
+      splash.addEventListener("click", onUserSkip);
+
+      // Failsafe timer (6s max) so user is never stuck
+      setTimeout(function () {
+        isVideoFinished = true;
+        dismissSplash();
+      }, 6000);
+    })();
+  </script>
+
   <div id="root"></div>
 
-  <!-- React 18 + Babel — served locally, no CDN dependency -->
+  <!-- React 18 — served locally, precompiled, no CDN and NO Babel dependency -->
   <script src="react.development.js"></script>
   <script src="react-dom.development.js"></script>
-  <script src="babel.min.js"></script>
-
   <!-- Markdown + syntax highlighting — must load before design components -->
   <script src="marked.min.js"></script>
   <script src="highlight.min.js"></script>
@@ -58,23 +239,24 @@
   <!-- Design components (unchanged — from src/design/ copy) -->
   <script src="design/tweaks/style.js"></script>
   <script src="design/tweaks/use-tweaks.js"></script>
-  <script type="text/babel" src="design/tweaks/panel.jsx"></script>
-  <script type="text/babel" src="design/tweaks/controls.jsx"></script>
-  <script type="text/babel" src="design/ui/icons.jsx"></script>
-  <script type="text/babel" src="design/ui/sparks.jsx"></script>
-  <script type="text/babel" src="design/ui/markdown.jsx"></script>
-  <script type="text/babel" src="design/ui/plan-annotations.jsx"></script>
-  <script type="text/babel" src="design/chat/user-bubble.jsx"></script>
-  <script type="text/babel" src="design/chat/eval-cell.jsx"></script>
-  <script type="text/babel" src="design/chat/assistant-bubble.jsx"></script>
-  <script type="text/babel" src="design/chat/tool-card.jsx"></script>
-  <script type="text/babel" src="design/chat/ask-bubble.jsx"></script>
-  <script type="text/babel" src="design/chat/chat-view.jsx"></script>
-  <script type="text/babel" src="design/composer.jsx"></script>
-  <script type="text/babel" src="design/chrome.jsx"></script>
-  <script type="text/babel" src="design/panels.jsx"></script>
-  <script type="text/babel" src="design/settings/models-modal.jsx"></script>
-  <script type="text/babel" src="design/settings/history-modal.jsx"></script>
+  <script src="design/media-db.js"></script>
+  <script src="design/tweaks/panel.js"></script>
+  <script src="design/tweaks/controls.js"></script>
+  <script src="design/ui/icons.js"></script>
+  <script src="design/ui/sparks.js"></script>
+  <script src="design/ui/markdown.js"></script>
+  <script src="design/ui/plan-annotations.js"></script>
+  <script src="design/chat/user-bubble.js"></script>
+  <script src="design/chat/eval-cell.js"></script>
+  <script src="design/chat/assistant-bubble.js"></script>
+  <script src="design/chat/tool-card.js"></script>
+  <script src="design/chat/ask-bubble.js"></script>
+  <script src="design/chat/chat-view.js"></script>
+  <script src="design/composer.js"></script>
+  <script src="design/chrome.js"></script>
+  <script src="design/panels.js"></script>
+  <script src="design/settings/models-modal.js"></script>
+  <script src="design/settings/history-modal.js"></script>
 
   <!-- Live data layer (must load before app-live.jsx) -->
   <script src="model-names.js"></script>
@@ -84,8 +266,8 @@
   <!-- App root — wired to OMP_BRIDGE, no demo effects -->
   <!-- App constants + cross-cutting hooks (must load before app-live.jsx) -->
   <script src="app/constants.js"></script>
-  <script type="text/babel" src="app/use-bridge-snapshot.jsx"></script>
+  <script src="app/use-bridge-snapshot.js"></script>
 
-  <script type="text/babel" src="app-live.jsx"></script>
+  <script src="app-live.js"></script>
 </body>
 </html>

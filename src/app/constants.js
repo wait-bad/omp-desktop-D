@@ -26,8 +26,12 @@
     "aiAvatar":   "",
     "bgImage": "",
     "bgOpacity": 60,
-    "prefixEnabled": false,
-    "customPrefix": ""
+    "showAnimationStage": true,
+    "showPowerMeter": true,
+    "stageStaticImg": "",
+    "stageRatioMode": "auto",
+    "splashEnabled": true,
+    "splashCustomVideo": false
   }/*EDITMODE-END*/;
 
   const NULL_MODEL    = { id: "", name: "–", provider: "", note: "", latency: 0, current: false };

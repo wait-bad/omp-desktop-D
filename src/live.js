@@ -44,6 +44,31 @@
       radarHint:    "agent has been busy — last 60 seconds",
     },
   };
+  // ── Global cached model helper for optimistic ready state ──────────────
+  function _loadCachedModels() {
+    try {
+      const raw = localStorage.getItem("omp_cached_models");
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  }
+  function _loadCachedModel() {
+    try {
+      const raw = localStorage.getItem("omp_cached_model");
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }
+  function _saveCachedModels(models, model) {
+    try {
+      if (models && models.length > 0) localStorage.setItem("omp_cached_models", JSON.stringify(models));
+      if (model) localStorage.setItem("omp_cached_model", JSON.stringify(model));
+    } catch (_) {}
+  }
+
+  const _initialCachedModels = _loadCachedModels();
+  const _initialCachedModel  = _loadCachedModel();
+  if (_initialCachedModels.length > 0) {
+    DEFAULT_DATA.models = _initialCachedModels;
+  }
 
   window.OMP_DATA = JSON.parse(JSON.stringify(DEFAULT_DATA));
 
@@ -54,11 +79,11 @@
     messages:            [],
     isStreaming:         false,
     isWaitingFirstToken: false,
-    model:               null,
+    model:               _initialCachedModel || null,
     ctx:            { ...DEFAULT_DATA.ctx },
     kanban:         [],
     planMeta:       { ...DEFAULT_DATA.planMeta },
-    models:         [],
+    models:         _initialCachedModels.length > 0 ? _initialCachedModels : [],
     activity:       [],
     sparkline:      Array(30).fill(0),
     projects:       [],
@@ -191,16 +216,20 @@
   }
 
   // Reset all per-session volatile state (called before loading a new session)
+  // NOTE: We preserve cached models and active model so new sessions and tab
+  // switches never drop into a blank/frozen "no models found" empty state.
   function _resetSessionVars() {
+    const cachedModels = state.models.length > 0 ? state.models : _loadCachedModels();
+    const cachedModel  = state.model || _loadCachedModel();
     Object.assign(state, {
       messages:      [],
       isStreaming:   false,
-      model:         null,
+      model:         cachedModel || null,
       thinkingLevel: null,
       ctx:           { ...DEFAULT_DATA.ctx },
       kanban:        [],
       planMeta:      { ...DEFAULT_DATA.planMeta },
-      models:        [],
+      models:        cachedModels || [],
       activity:      [],
       sparkline:     Array(30).fill(0),
       projects:      [],
@@ -208,10 +237,10 @@
       sessionCost:   null,
       currentTps:    0,
     });
-    streamingBubble = null;
+    streamingBubble  = null;
     pendingAskBubble = null;
-    activeToolCards = new Map();
-    tpsSamples      = Array(30).fill(0);
+    activeToolCards  = new Map();
+    tpsSamples       = Array(30).fill(0);
     turnStartTime   = null;
     activityLog     = [];
   }
@@ -426,6 +455,10 @@
         latency:  0,
         current:  state.rpcState?.model?.id === m.id,
       }));
+      if (!state.model && state.models.length > 0) {
+        state.model = state.models.find(m => m.current) || state.models[0];
+      }
+      _saveCachedModels(state.models, state.model);
       notify();
       console.log(`[live] models loaded (${state.models.length}) for session '${activeSessionId}'`);
 
@@ -433,6 +466,7 @@
       if (data) {
         state.model  = _buildModelEntry(data);
         state.models = state.models.map(m => ({ ...m, current: m.id === data.id }));
+        _saveCachedModels(state.models, state.model);
         notify();
       }
 
@@ -939,6 +973,7 @@
       const modelId = m.id.includes("/") ? m.id.split("/")[1] : m.id;
       state.model = _buildModelEntry(m);
       state.models = state.models.map(item => ({ ...item, current: item.id === m.id }));
+      _saveCachedModels(state.models, state.model);
       notify();
       _send({ type: "set_model", provider: provider ?? m.provider, modelId });
     },
@@ -1015,6 +1050,18 @@
     async saveSystemPrompt(content) {
       if (window.__TAURI__?.core?.invoke) {
         return await window.__TAURI__.core.invoke("save_system_prompt", { content });
+      }
+    },
+    async getSystemMd() {
+      if (window.__TAURI__?.core?.invoke) {
+        return await window.__TAURI__.core.invoke("get_system_md");
+      }
+      return "";
+    },
+
+    async saveSystemMd(content) {
+      if (window.__TAURI__?.core?.invoke) {
+        return await window.__TAURI__.core.invoke("save_system_md", { content });
       }
     },
 

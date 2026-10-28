@@ -95,6 +95,9 @@
     const [systemPrompt, setSystemPrompt] = React.useState("");
     const [promptSaving, setPromptSaving] = React.useState(false);
     const [promptSavedNote, setPromptSavedNote] = React.useState(false);
+    const [systemMd, setSystemMd] = React.useState("");
+    const [systemMdSaving, setSystemMdSaving] = React.useState(false);
+    const [systemMdSavedNote, setSystemMdSavedNote] = React.useState(false);
     const [syncSuccess, setSyncSuccess]         = React.useState(false);
 
     // ── Aggregate all available models from providers for dropdown selection ──
@@ -178,8 +181,12 @@
           const sys = await window.OMP_BRIDGE.getSystemPrompt();
           setSystemPrompt(sys || "");
         }
+        if (window.OMP_BRIDGE?.getSystemMd) {
+          const smd = await window.OMP_BRIDGE.getSystemMd();
+          setSystemMd(smd || "");
+        }
       } catch (e) {
-        console.error("Failed to load system prompt:", e);
+        console.error("Failed to load system prompt files:", e);
       }
     }, []);
 
@@ -287,6 +294,20 @@
     const coticeImgRef = React.useRef(null);
     const codiceImgRef = React.useRef(null);
     const bgImgRef     = React.useRef(null);
+    const stageImgRef   = React.useRef(null);
+    const stageVideoRef = React.useRef(null);
+    const splashVideoRef = React.useRef(null);
+    const [dbStaticImg, setDbStaticImg] = React.useState(null);
+    const [dbActiveVideo, setDbActiveVideo] = React.useState(null);
+    const [dbSplashVideo, setDbSplashVideo] = React.useState(null);
+
+    React.useEffect(() => {
+      if (isOpen && window.mediaDB) {
+        window.mediaDB.get("stageStaticImg").then(val => val && setDbStaticImg(val));
+        window.mediaDB.get("stageActiveVideo").then(val => val && setDbActiveVideo(val));
+        window.mediaDB.get("splashVideo").then(val => val && setDbSplashVideo(val));
+      }
+    }, [isOpen]);
 
     const onFilePicked = (file, key) => {
       if (!file) return;
@@ -294,8 +315,24 @@
       reader.onload = (e) => {
         const rawData = e.target?.result;
         if (!rawData) return;
-        // If it's an avatar (user, cotice, codice), compress via offscreen canvas to 256x256
-        if (key.includes("Avatar") || key.includes("avatar")) {
+        if (key === "stageStaticImg") {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const size = 512;
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext("2d");
+            const minSide = Math.min(img.width, img.height);
+            const sx = (img.width - minSide) / 2;
+            const sy = (img.height - minSide) / 2;
+            ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+            const compressed = canvas.toDataURL("image/webp", 0.9);
+            window.mediaDB?.set(key, compressed);
+            setDbStaticImg(compressed);
+          };
+          img.src = rawData;
+        } else if (key.includes("Avatar") || key.includes("avatar")) {
           const img = new Image();
           img.onload = () => {
             const canvas = document.createElement("canvas");
@@ -303,7 +340,6 @@
             canvas.width = size;
             canvas.height = size;
             const ctx = canvas.getContext("2d");
-            // draw image cropped to square from center
             const minSide = Math.min(img.width, img.height);
             const sx = (img.width - minSide) / 2;
             const sy = (img.height - minSide) / 2;
@@ -312,6 +348,33 @@
             setTweak(key, compressed);
           };
           img.src = rawData;
+        } else if (key === "stageActiveVideo") {
+          let corrected = rawData;
+          const lowerName = (file.name || "").toLowerCase();
+          if (typeof rawData === "string" && !rawData.startsWith("data:video/") && !rawData.startsWith("data:image/")) {
+            if (lowerName.endsWith(".mp4")) {
+              corrected = rawData.replace(/^data:[^;]*/, "data:video/mp4");
+            } else if (lowerName.endsWith(".webm")) {
+              corrected = rawData.replace(/^data:[^;]*/, "data:video/webm");
+            } else if (lowerName.endsWith(".gif")) {
+              corrected = rawData.replace(/^data:[^;]*/, "data:image/gif");
+            }
+          }
+          window.mediaDB?.set(key, corrected);
+          setDbActiveVideo(corrected);
+        } else if (key === "splashVideo") {
+          let corrected = rawData;
+          const lowerName = (file.name || "").toLowerCase();
+          if (typeof rawData === "string" && !rawData.startsWith("data:video/")) {
+            if (lowerName.endsWith(".mp4")) {
+              corrected = rawData.replace(/^data:[^;]*/, "data:video/mp4");
+            } else if (lowerName.endsWith(".webm")) {
+              corrected = rawData.replace(/^data:[^;]*/, "data:video/webm");
+            }
+          }
+          window.mediaDB?.set("splashVideo", corrected);
+          setDbSplashVideo(corrected);
+          setTweak("splashCustomVideo", true);
         } else {
           setTweak(key, rawData);
         }
@@ -329,7 +392,8 @@
       api: { title: "API 与模型服务提供商", desc: "配置官方直连、自建中转站 (OneAPI/NewAPI) 或第三方模型代理" },
       prompt: { title: "提示词设置", desc: "管理静默发送的前缀提示词与跨工程通用的全局提示词" },
       appearance: { title: "界面背景壁纸与外观", desc: "自定义桌面背景图片、透明度与视觉层次" },
-      tools: { title: "MCP 扩展与 Skills 技能", desc: "管理外部上下文工具服务，避免多余注入打穿上下文与 TPM 配额" }
+      tools: { title: "MCP 扩展与 Skills 技能", desc: "管理外部上下文工具服务，避免多余注入打穿上下文与 TPM 配额" },
+      stage: { title: "舞台动画与动图 (Animation Stage)", desc: "为右侧正方形专属舞台配置静态插画与工作中实时播放的动态视频/动图" },
     };
     const currentTabInfo = tabHeaders[activeTab] || tabHeaders.twins;
 
@@ -379,6 +443,13 @@
             >
               <_MIcon name="image" size={14} />
               <span>背景与外观</span>
+            </button>
+            <button
+              className={`models-nav-item ${activeTab === "stage" ? "active" : ""}`}
+              onClick={() => setActiveTab("stage")}
+            >
+              <_MIcon name="play" size={14} color="var(--accent)" />
+              <span>舞台动画与动图</span>
             </button>
 
             <button
@@ -825,63 +896,84 @@
                     </div>
 
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {mcpServers.map((s) => (
-                        <div
-                          key={s.name}
-                          style={{
-                            background: "var(--bg-elevated)",
-                            border: "1px solid var(--line)",
-                            borderRadius: 8,
-                            padding: "12px 14px",
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            gap: 16
-                          }}
-                        >
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span style={{ fontWeight: 600, fontSize: "13px", color: "var(--fg-1)" }}>
-                                {s.name}
-                              </span>
-                              <span
-                                className="mono"
-                                style={{
-                                  fontSize: "10px",
-                                  padding: "1px 5px",
-                                  borderRadius: 4,
-                                  background: s.status === "running" ? "rgba(74, 222, 128, 0.15)" : "rgba(239, 68, 68, 0.15)",
-                                  color: s.status === "running" ? "var(--accent)" : "var(--crimson)"
-                                }}
-                              >
-                                {s.status}
-                              </span>
-                              <span className="mono" style={{ fontSize: "10px", color: "var(--fg-4)" }}>
-                                {s.source}
-                              </span>
-                            </div>
-                            <div className="mono" style={{ fontSize: "11px", color: "var(--fg-3)", marginTop: 4 }}>
-                              command: {s.command || "N/A"}
-                            </div>
-                          </div>
-
-                          <button
-                            className={`btn mini ${s.status === "running" ? "ghost" : "primary"}`}
+                      {mcpServers.map((s) => {
+                        const isEn = Boolean(s.enabled);
+                        return (
+                          <div
+                            key={s.name}
                             style={{
-                              fontSize: "11px",
-                              padding: "2px 10px",
-                              color: s.status === "running" ? "var(--crimson)" : undefined
-                            }}
-                            onClick={async () => {
-                              const next = s.status !== "running";
-                              await window.OMP_BRIDGE?.toggleMcpServer(s.name, next);
-                              setMcpServers(prev => prev.map(srv => srv.name === s.name ? { ...srv, status: next ? "running" : "stopped" } : srv));
+                              background: "var(--bg-elevated)",
+                              border: isEn ? "1px solid color-mix(in oklab, var(--accent) 30%, var(--line))" : "1px dashed var(--line)",
+                              borderRadius: 8,
+                              padding: "10px 14px",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              gap: 16,
+                              minWidth: 0,
+                              transition: "all 150ms ease"
                             }}
                           >
-                            {s.status === "running" ? "Stop (停止)" : "Start (拉起)"}
-                          </button>
-                        </div>
-                      ))}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontWeight: 600, fontSize: "13px", color: isEn ? "var(--fg-1)" : "var(--fg-3)" }}>
+                                  {s.name}
+                                </span>
+                                <span
+                                  className="mono"
+                                  style={{
+                                    fontSize: "10px",
+                                    padding: "1px 6px",
+                                    borderRadius: 4,
+                                    background: isEn ? "rgba(74, 222, 128, 0.15)" : "var(--bg-surface)",
+                                    color: isEn ? "var(--accent)" : "var(--fg-4)",
+                                    border: `1px solid ${isEn ? "color-mix(in oklab, var(--accent) 35%, transparent)" : "var(--line)"}`
+                                  }}
+                                >
+                                  {isEn ? "Enabled" : "Disabled"}
+                                </span>
+                                <span className="mono" style={{ fontSize: "10px", color: "var(--fg-4)" }}>
+                                  {s.source}
+                                </span>
+                              </div>
+                              <div
+                                className="mono selectable"
+                                title={s.command || "N/A"}
+                                style={{
+                                  fontSize: "11px",
+                                  color: "var(--fg-4)",
+                                  marginTop: 4,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                  maxWidth: "100%"
+                                }}
+                              >
+                                command: {s.command || "N/A"}
+                              </div>
+                            </div>
+
+                            <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                              <button
+                                className={`btn mini ${isEn ? "ghost danger" : "primary"}`}
+                                style={{
+                                  fontSize: "11px",
+                                  padding: "3px 12px",
+                                  minWidth: 70,
+                                  justifyContent: "center"
+                                }}
+                                onClick={async () => {
+                                  const next = !isEn;
+                                  await window.OMP_BRIDGE?.toggleMcpServer(s.name, next);
+                                  setMcpServers(prev => prev.map(srv => srv.name === s.name ? { ...srv, enabled: next } : srv));
+                                }}
+                              >
+                                {isEn ? "停用" : "启用"}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                       {mcpServers.length === 0 && !mcpLoading && (
                         <div style={{ textAlign: "center", padding: 30, color: "var(--fg-4)" }}>
                           No MCP servers found in ~/.omp/agent/mcp.json
@@ -902,7 +994,7 @@
                         className={`btn mini ${skillsMaster ? "primary" : "ghost"}`}
                         onClick={async () => {
                           const next = !skillsMaster;
-                          await window.OMP_BRIDGE?.toggleSkillsMaster(next);
+                          await window.OMP_BRIDGE?.setSkillsMasterEnabled(next);
                           setSkillsMaster(next);
                           setSkillsList(prev => prev.map(s => ({ ...s, enabled: next })));
                         }}
@@ -928,17 +1020,19 @@
                             key={sk.name}
                             style={{
                               background: "var(--bg-elevated)",
-                              border: isEn ? "1px solid var(--line)" : "1px dashed var(--line)",
+                              border: isEn ? "1px solid color-mix(in oklab, var(--accent) 30%, var(--line))" : "1px dashed var(--line)",
                               opacity: skillsMaster ? 1 : 0.6,
                               borderRadius: 8,
                               padding: "10px 14px",
                               display: "flex",
                               justifyContent: "space-between",
                               alignItems: "center",
-                              gap: 16
+                              gap: 16,
+                              minWidth: 0,
+                              transition: "all 150ms ease"
                             }}
                           >
-                            <div style={{ flex: 1 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <span style={{ fontWeight: 600, fontSize: "13px", color: isEn ? "var(--fg-1)" : "var(--fg-3)" }}>
                                   {sk.name}
@@ -965,23 +1059,25 @@
                                 </div>
                               )}
                             </div>
-
-                            <button
-                              className={`btn mini ${sk.enabled ? "ghost" : "primary"}`}
-                              disabled={!skillsMaster}
-                              style={{
-                                fontSize: "11px",
-                                padding: "2px 10px",
-                                color: sk.enabled ? "var(--crimson)" : undefined
-                              }}
-                              onClick={async () => {
-                                const next = !sk.enabled;
-                                await window.OMP_BRIDGE?.toggleSkill(sk.name, next);
-                                setSkillsList(prev => prev.map(s => s.name === sk.name ? { ...s, enabled: next } : s));
-                              }}
-                            >
-                              {sk.enabled ? "Ignore (忽略)" : "Enable (启用)"}
-                            </button>
+                            <div style={{ flexShrink: 0, display: "flex", alignItems: "center" }}>
+                              <button
+                                className={`btn mini ${sk.enabled ? "ghost danger" : "primary"}`}
+                                disabled={!skillsMaster}
+                                style={{
+                                  fontSize: "11px",
+                                  padding: "3px 12px",
+                                  minWidth: 70,
+                                  justifyContent: "center"
+                                }}
+                                onClick={async () => {
+                                  const next = !sk.enabled;
+                                  await window.OMP_BRIDGE?.toggleSkill(sk.name, next);
+                                  setSkillsList(prev => prev.map(s => s.name === sk.name ? { ...s, enabled: next } : s));
+                                }}
+                              >
+                                {sk.enabled ? "忽略" : "启用"}
+                              </button>
+                            </div>
                           </div>
                         );
                       })}
@@ -999,56 +1095,76 @@
             {/* Tab 3: Prompts & 提示词 */}
             {activeTab === "prompt" && (
               <div style={{ padding: 20, overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 20 }}>
-                {/* 独立前缀提示词 */}
-                <div style={{ background: "var(--bg-window)", padding: 16, borderRadius: 8, border: tweaks.prefixEnabled ? "1.5px solid var(--accent)" : "1px solid var(--line)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: "var(--d-text-sm)", color: "var(--fg-1)", display: "flex", alignItems: "center", gap: 8 }}>
-                        <span>✨ 独立前缀提示词 (Custom Prefix Prompt)</span>
-                        <span className="mono" style={{ fontSize: "10px", padding: "1px 6px", borderRadius: 4, background: tweaks.prefixEnabled ? "var(--accent)" : "var(--bg-elevated)", color: tweaks.prefixEnabled ? "#000" : "var(--fg-3)" }}>
-                          {tweaks.prefixEnabled ? "已启用" : "已停用"}
-                        </span>
+                {/* 1. 全局 System Prompt (SYSTEM.md) */}
+                <div style={{ background: "var(--bg-window)", padding: 16, borderRadius: 8, border: "1px solid color-mix(in oklab, var(--cyan) 30%, var(--line))" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: "var(--d-text-sm)", color: "var(--cyan)", display: "flex", alignItems: "center", gap: 6 }}>
+                        <_MIcon name="bolt" size={13} color="var(--cyan)" />
+                        <span>核心系统提示词 · SYSTEM.md (~/.omp/agent/SYSTEM.md)</span>
                       </div>
                       <div style={{ fontSize: "var(--d-text-xs)", color: "var(--fg-3)", marginTop: 4 }}>
-                        每次发送时隐式追加在用户指令最前方，不会在聊天气泡中显露。
+                        定义大模型在对话中最底层的系统级心智、技术准则与顶层法则。
                       </div>
                     </div>
-                    <button
-                      className={`btn mini ${tweaks.prefixEnabled ? "primary" : "ghost"}`}
-                      onClick={() => setTweak("prefixEnabled", !tweaks.prefixEnabled)}
-                    >
-                      {tweaks.prefixEnabled ? "停用前缀" : "启用前缀"}
-                    </button>
+                    <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                      {systemMdSavedNote && (
+                        <span className="mono" style={{ fontSize: "11px", color: "var(--accent)" }}>✓ 已保存</span>
+                      )}
+                      <button
+                        className="btn primary mini"
+                        disabled={systemMdSaving}
+                        style={{ minWidth: 64, height: 26, justifyContent: "center", whiteSpace: "nowrap" }}
+                        onClick={async () => {
+                          setSystemMdSaving(true);
+                          try {
+                            if (window.OMP_BRIDGE?.saveSystemMd) {
+                              await window.OMP_BRIDGE.saveSystemMd(systemMd);
+                              setSystemMdSavedNote(true);
+                              setTimeout(() => setSystemMdSavedNote(false), 2000);
+                            }
+                          } catch (err) {
+                            alert("保存 SYSTEM.md 失败: " + err.message);
+                          } finally {
+                            setSystemMdSaving(false);
+                          }
+                        }}
+                      >
+                        {systemMdSaving ? "Saving..." : "Save"}
+                      </button>
+                    </div>
                   </div>
 
                   <textarea
-                    rows={4}
+                    rows={8}
                     className="twk-field mono selectable"
-                    style={{ width: "100%", marginTop: 12, resize: "vertical", fontSize: "var(--d-text-sm)", lineHeight: 1.4 }}
-                    placeholder="输入需要每次隐式携带的全局前缀规则..."
-                    value={tweaks.customPrefix || ""}
-                    onChange={(e) => setTweak("customPrefix", e.target.value)}
+                    style={{ width: "100%", marginTop: 12, resize: "vertical", fontSize: "var(--d-text-xs)", lineHeight: 1.4 }}
+                    value={systemMd}
+                    onChange={(e) => setSystemMd(e.target.value)}
+                    placeholder="正在读取 ~/.omp/agent/SYSTEM.md ..."
                   />
                 </div>
 
-                {/* 全局 System Prompt */}
-                <div style={{ background: "var(--bg-window)", padding: 16, borderRadius: 8, border: "1px solid var(--line)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: "var(--d-text-sm)", color: "var(--fg-1)" }}>
-                        全局 System Prompt (~/.omp/agent/AGENTS.md)
+                {/* 2. 智能体与搭档心智 (AGENTS.md) */}
+                <div style={{ background: "var(--bg-window)", padding: 16, borderRadius: 8, border: "1px solid color-mix(in oklab, var(--accent) 30%, var(--line))" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: "var(--d-text-sm)", color: "var(--accent)", display: "flex", alignItems: "center", gap: 6 }}>
+                        <_MIcon name="sparkle" size={13} color="var(--accent)" />
+                        <span>智能体搭档心智 · AGENTS.md (~/.omp/agent/AGENTS.md)</span>
                       </div>
                       <div style={{ fontSize: "var(--d-text-xs)", color: "var(--fg-3)", marginTop: 4 }}>
-                        定义所有 Agent 共享的基础行为与心智。
+                        定义可蒂丝（Cotice）的拟人化人格、工作风格、口吻、亲密依恋与交互偏好。
                       </div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 8 }}>
                       {promptSavedNote && (
                         <span className="mono" style={{ fontSize: "11px", color: "var(--accent)" }}>✓ 已保存</span>
                       )}
                       <button
                         className="btn primary mini"
                         disabled={promptSaving}
+                        style={{ minWidth: 64, height: 26, justifyContent: "center", whiteSpace: "nowrap" }}
                         onClick={async () => {
                           setPromptSaving(true);
                           try {
@@ -1058,13 +1174,13 @@
                               setTimeout(() => setPromptSavedNote(false), 2000);
                             }
                           } catch (err) {
-                            alert("保存失败: " + err.message);
+                            alert("保存 AGENTS.md 失败: " + err.message);
                           } finally {
                             setPromptSaving(false);
                           }
                         }}
                       >
-                        {promptSaving ? "保存中..." : "保存 AGENTS.md"}
+                        {promptSaving ? "Saving..." : "Save"}
                       </button>
                     </div>
                   </div>
@@ -1075,7 +1191,7 @@
                     style={{ width: "100%", marginTop: 12, resize: "vertical", fontSize: "var(--d-text-xs)", lineHeight: 1.4 }}
                     value={systemPrompt}
                     onChange={(e) => setSystemPrompt(e.target.value)}
-                    placeholder="读取中..."
+                    placeholder="正在读取 ~/.omp/agent/AGENTS.md ..."
                   />
                 </div>
               </div>
@@ -1133,9 +1249,297 @@
                       </span>
                     </div>
                   )}
+                  <div className="setting-card" style={{ marginTop: 20, margin: "20px 0 0 0" }}>
+                    <div className="setting-card-title">
+                      <_MIcon name="bolt" size={13} color="var(--accent)" />
+                      <span>硬件功耗监控模块 (Power Meter)</span>
+                      <label style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", cursor: "pointer", gap: 6 }}>
+                        <input
+                          type="checkbox"
+                          checked={tweaks.showPowerMeter !== false}
+                          onChange={(e) => setTweak("showPowerMeter", e.target.checked)}
+                          style={{ accentColor: "var(--accent)" }}
+                        />
+                        <span style={{ fontSize: 11, color: tweaks.showPowerMeter !== false ? "var(--accent)" : "var(--fg-4)" }}>
+                          {tweaks.showPowerMeter !== false ? "已开启" : "已关闭"}
+                        </span>
+                      </label>
+                    </div>
+                    <div className="setting-card-desc">
+                      在右侧边栏底部实时监测整机物理瓦数、CPU 封装功耗 (RAPL)、端电压与电流。支持电量动态变色与后台休眠。
+                    </div>
+                  </div>
+
+                  {/* 开屏动画与启动视频设置卡片 */}
+                  <div className="setting-card" style={{ marginTop: 20, margin: "20px 0 0 0" }}>
+                    <div className="setting-card-title">
+                      <_MIcon name="play" size={13} color="var(--accent)" />
+                      <span>开屏动画与启动视频 (Splash Screen)</span>
+                      <label style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", cursor: "pointer", gap: 6 }}>
+                        <input
+                          type="checkbox"
+                          checked={tweaks.splashEnabled !== false}
+                          onChange={(e) => setTweak("splashEnabled", e.target.checked)}
+                          style={{ accentColor: "var(--accent)" }}
+                        />
+                        <span style={{ fontSize: 11, color: tweaks.splashEnabled !== false ? "var(--accent)" : "var(--fg-4)" }}>
+                          {tweaks.splashEnabled !== false ? "已开启" : "已关闭"}
+                        </span>
+                      </label>
+                    </div>
+                    <div className="setting-card-desc">
+                      软件冷启动时播放的全屏开屏动效。支持按任意键（空格、回车等）随时快进跳过；用腻了可在此随时上传自己的 MP4 视频或一键还原。
+                    </div>
+
+                    {tweaks.splashEnabled !== false && (
+                      <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 12 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                          {/* 视频实时预览框 */}
+                          <div style={{
+                            width: 150,
+                            height: 84,
+                            borderRadius: 8,
+                            overflow: "hidden",
+                            background: "#0d0f12",
+                            border: "1px solid var(--line-bright)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            position: "relative",
+                            boxShadow: "0 4px 12px rgba(0,0,0,0.4)"
+                          }}>
+                            <video
+                              key={dbSplashVideo || "default-splash"}
+                              src={dbSplashVideo || "splash.mp4"}
+                              autoPlay
+                              muted
+                              loop
+                              playsInline
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            />
+                            <div style={{
+                              position: "absolute",
+                              bottom: 4,
+                              left: 6,
+                              padding: "2px 6px",
+                              borderRadius: 4,
+                              background: "rgba(0,0,0,0.65)",
+                              fontSize: 9.5,
+                              color: "var(--fg-2)",
+                              fontFamily: "monospace"
+                            }}>
+                              {dbSplashVideo ? "自定义视频" : "内置默认"}
+                            </div>
+                          </div>
+
+                          {/* 按钮操作组 */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <input
+                              ref={splashVideoRef}
+                              type="file"
+                              accept="video/mp4,video/webm,video/*"
+                              style={{ display: "none" }}
+                              onChange={(e) => onFilePicked(e.target.files?.[0], "splashVideo")}
+                            />
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                              <button className="btn mini" onClick={() => splashVideoRef.current?.click()}>
+                                更换开屏视频 (.mp4)...
+                              </button>
+                              {dbSplashVideo && (
+                                <button
+                                  className="btn ghost mini"
+                                  style={{ color: "var(--crimson)" }}
+                                  onClick={() => {
+                                    window.mediaDB?.del("splashVideo");
+                                    setDbSplashVideo(null);
+                                    setTweak("splashCustomVideo", false);
+                                  }}
+                                >
+                                  恢复默认动画
+                                </button>
+                              )}
+                            </div>
+                            <span style={{ fontSize: "var(--d-text-xs)", color: "var(--fg-4)" }}>
+                              支持所有主流 16:9 MP4 视频，借助 IndexedDB 引擎本地直读，无尺寸配额限制。
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
+            {/* Tab 5: Animation Stage Settings */}
+            {activeTab === "stage" && (() => {
+              const effectiveStatic = dbStaticImg || tweaks.stageStaticImg;
+              const effectiveVideo = dbActiveVideo || tweaks.stageActiveVideo;
+              const isVideo = effectiveVideo && (
+                effectiveVideo.startsWith("data:video/") ||
+                effectiveVideo.includes("video/mp4") ||
+                effectiveVideo.includes("video/webm")
+              );
+
+              return (
+                <div style={{ padding: 20, overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+                  {/* 0. 舞台总开关 */}
+                  <div className="setting-card" style={{ margin: 0 }}>
+                    <div className="setting-card-title">
+                      <_MIcon name="sparkle" size={13} color="var(--accent)" />
+                      <span>显示右侧专属动画舞台 (Animation Stage)</span>
+                      <label style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", cursor: "pointer", gap: 6 }}>
+                        <input
+                          type="checkbox"
+                          checked={tweaks.showAnimationStage !== false}
+                          onChange={(e) => setTweak("showAnimationStage", e.target.checked)}
+                          style={{ accentColor: "var(--accent)" }}
+                        />
+                        <span style={{ fontSize: 11, color: tweaks.showAnimationStage !== false ? "var(--accent)" : "var(--fg-4)" }}>
+                          {tweaks.showAnimationStage !== false ? "已开启" : "已隐藏"}
+                        </span>
+                      </label>
+                    </div>
+                    <div className="setting-card-desc">
+                      控制右侧栏正方形动画舞台的显示与隐藏。关闭后下方 Minimap 小地图将自适应延展填满剩余视区。
+                    </div>
+                  </div>
+                  {/* 1. 静态插画设置卡片 */}
+                  <div className="setting-card" style={{ margin: 0 }}>
+                    <div className="setting-card-title">
+                      <_MIcon name="image" size={13} color="var(--accent)" />
+                      <span>空闲/待机静态正方形插图 (Idle & Ready)</span>
+                    </div>
+                    <div className="setting-card-desc">
+                      当 Agent 处于空闲、等待用户输入或任务已经完成时，在右侧正方形舞台展示此静态插画。
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 10 }}>
+                      <div style={{ width: 100, height: 100, borderRadius: 8, overflow: "hidden", border: "1.5px solid var(--line-bright)", background: "var(--bg-elevated)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        {effectiveStatic ? (
+                          <img src={effectiveStatic} alt="static preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        ) : (
+                          <span className="mono" style={{ fontSize: 10, color: "var(--fg-4)", textAlign: "center", padding: 6 }}>
+                            默认瞄准虚线框
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        <input
+                          ref={stageImgRef}
+                          type="file"
+                          accept="image/*"
+                          style={{ display: "none" }}
+                          onChange={(e) => onFilePicked(e.target.files?.[0], "stageStaticImg")}
+                        />
+                        <button className="btn mini" onClick={() => stageImgRef.current?.click()}>
+                          {effectiveStatic ? "更换静态插图..." : "上传本地正方形图片..."}
+                        </button>
+                        {effectiveStatic && (
+                          <button
+                            className="btn ghost mini danger"
+                            onClick={() => {
+                              window.mediaDB?.del("stageStaticImg");
+                              setDbStaticImg(null);
+                              setTweak("stageStaticImg", "");
+                            }}
+                          >
+                            清除静态插图 (恢复默认)
+                          </button>
+                        )}
+                        <span style={{ fontSize: 11, color: "var(--fg-4)" }}>
+                          支持 PNG/JPG/WebP，系统将自动居中裁剪为 512×512 正方形并由 IndexedDB 安全存储。
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. 动态视频/动画设置卡片 */}
+                  <div className="setting-card" style={{ margin: 0 }}>
+                    <div className="setting-card-title">
+                      <_MIcon name="play" size={13} color="var(--cyan)" />
+                      <span>工作中动态视频/动画 (Working & Streaming)</span>
+                    </div>
+                    <div className="setting-card-desc">
+                      当 Agent 正在思考、执行工具或流式吐字输出时，在右侧正方形舞台自动循环静音播放。
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 10 }}>
+                      <div style={{ width: 100, height: 100, borderRadius: 8, overflow: "hidden", border: "1.5px solid var(--line-bright)", background: "var(--bg-elevated)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        {effectiveVideo ? (
+                          isVideo ? (
+                            <video src={effectiveVideo} autoPlay loop muted playsInline style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          ) : (
+                            <img src={effectiveVideo} alt="video preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          )
+                        ) : (
+                          <span className="mono" style={{ fontSize: 10, color: "var(--fg-4)", textAlign: "center", padding: 6 }}>
+                            默认科技感波纹
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        <input
+                          ref={stageVideoRef}
+                          type="file"
+                          accept="video/mp4,video/webm,image/gif,image/webp"
+                          style={{ display: "none" }}
+                          onChange={(e) => onFilePicked(e.target.files?.[0], "stageActiveVideo")}
+                        />
+                        <button className="btn mini" onClick={() => stageVideoRef.current?.click()}>
+                          {effectiveVideo ? "更换动态视频/动图..." : "上传本地视频/GIF 动画..."}
+                        </button>
+                        {effectiveVideo && (
+                          <button
+                            className="btn ghost mini danger"
+                            onClick={() => {
+                              window.mediaDB?.del("stageActiveVideo");
+                              setDbActiveVideo(null);
+                              setTweak("stageActiveVideo", "");
+                            }}
+                          >
+                            清除动态视频 (恢复默认)
+                          </button>
+                        )}
+                        <span style={{ fontSize: 11, color: "var(--fg-4)" }}>
+                          支持 MP4/WebM 视频或 GIF 动图，由 IndexedDB 存储（彻底无 5MB 上限限制）。
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  {/* 3. 舞台比例自适应模式 */}
+                  <div className="setting-card" style={{ margin: 0 }}>
+                    <div className="setting-card-title">
+                      <_MIcon name="layers" size={13} color="var(--accent)" />
+                      <span>舞台宽高比模式 (Aspect Ratio)</span>
+                    </div>
+                    <div className="setting-card-desc">
+                      支持正方形 (1:1) 与立绘肖像 (3:4) 比例。设置为“智能自适应”时，系统将根据所上传图片/视频的实际尺寸自动平滑拉伸切换。
+                    </div>
+
+                    <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+                      {[
+                        { id: "auto", label: "智能自适应 (Auto 推荐)", desc: "自动识别横竖立绘" },
+                        { id: "1:1", label: "锁定正方形 (1:1)", desc: "标准正方形舞台" },
+                        { id: "3:4", label: "锁定立绘 (3:4)", desc: "竖向肖像立绘舞台" },
+                      ].map(opt => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          className={`btn mini ${(tweaks.stageRatioMode || "auto") === opt.id ? "accent" : "ghost"}`}
+                          style={{ padding: "6px 12px", height: "auto", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}
+                          onClick={() => setTweak("stageRatioMode", opt.id)}
+                        >
+                          <span style={{ fontWeight: 600 }}>{opt.label}</span>
+                          <span style={{ fontSize: 9, opacity: 0.7 }}>{opt.desc}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Footer */}
             <div className="models-modal-footer">

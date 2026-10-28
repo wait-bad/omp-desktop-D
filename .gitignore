@@ -47,3 +47,14 @@ docs/superpowers/
 /src-tauri/sapi_helper.exe
 /src-tauri/src/sapi_speech.rs
 *.onnx
+
+# ── Scratch & local dev files (do not commit) ──────────────────────────────────
+/append_round2.py
+/compile_task.txt
+/cotice_hub_server.py
+/dispatch_prompt.txt
+/make_lnk.py
+/server_spec.txt
+/test-video.html
+/test.mp4
+/src-tauri/target/debug/omp-desktop-running.exe

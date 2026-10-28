@@ -28,7 +28,6 @@ pub struct SkillItem {
     pub source: String,
 }
 
-
 // ── MCP Config Handling ──────────────────────────────────────────────────────
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -68,8 +67,17 @@ fn get_omp_config_path() -> Result<PathBuf, String> {
 
 fn get_agents_md_path() -> Result<PathBuf, String> {
     let mut p = get_home_dir()?;
-    p.push(".codex");
+    p.push(".omp");
+    p.push("agent");
     p.push("AGENTS.md");
+    Ok(p)
+}
+
+fn get_system_md_path() -> Result<PathBuf, String> {
+    let mut p = get_home_dir()?;
+    p.push(".omp");
+    p.push("agent");
+    p.push("SYSTEM.md");
     Ok(p)
 }
 
@@ -100,7 +108,10 @@ pub fn list_mcp_servers() -> Result<Vec<McpServerItem>, String> {
         } else {
             val.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true)
         };
-        let command = val.get("command").and_then(|v| v.as_str()).map(String::from);
+        let command = val
+            .get("command")
+            .and_then(|v| v.as_str())
+            .map(String::from);
         let args = val.get("args").and_then(|v| v.as_array()).map(|arr| {
             arr.iter()
                 .filter_map(|x| x.as_str().map(String::from))
@@ -157,7 +168,8 @@ pub fn list_mcp_servers() -> Result<Vec<McpServerItem>, String> {
                 } else if !current_section.is_empty() {
                     if trimmed.starts_with("command") {
                         if let Some((_, val)) = trimmed.split_once('=') {
-                            current_cmd = Some(val.trim().trim_matches('"').trim_matches('\'').to_string());
+                            current_cmd =
+                                Some(val.trim().trim_matches('"').trim_matches('\'').to_string());
                         }
                     } else if trimmed.starts_with("enabled") {
                         if let Some((_, val)) = trimmed.split_once('=') {
@@ -165,7 +177,8 @@ pub fn list_mcp_servers() -> Result<Vec<McpServerItem>, String> {
                         }
                     } else if trimmed.starts_with("args") {
                         if let Some((_, val)) = trimmed.split_once('=') {
-                            if let Ok(parsed_args) = serde_json::from_str::<Vec<String>>(val.trim()) {
+                            if let Ok(parsed_args) = serde_json::from_str::<Vec<String>>(val.trim())
+                            {
                                 current_args = Some(parsed_args);
                             }
                         }
@@ -243,7 +256,10 @@ pub fn list_skills() -> Result<(bool, Vec<SkillItem>), String> {
                     if let Some(en) = skills_val.get("enabled").and_then(|v| v.as_bool()) {
                         skills_master_enabled = en;
                     }
-                    if let Some(arr) = skills_val.get("ignoredSkills").and_then(|v| v.as_sequence()) {
+                    if let Some(arr) = skills_val
+                        .get("ignoredSkills")
+                        .and_then(|v| v.as_sequence())
+                    {
                         for item in arr {
                             if let Some(s) = item.as_str() {
                                 ignored_skills.insert(s.to_string());
@@ -278,7 +294,11 @@ pub fn list_skills() -> Result<(bool, Vec<SkillItem>), String> {
             for entry in entries.flatten() {
                 let p = entry.path();
                 if p.is_dir() {
-                    let name = p.file_name().unwrap_or_default().to_string_lossy().to_string();
+                    let name = p
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string();
                     if name.starts_with('.') {
                         continue;
                     }
@@ -330,7 +350,10 @@ pub fn toggle_skill(name: &str, enable: bool) -> Result<(), String> {
     let mapping = val.as_mapping_mut().ok_or("Config is not a YAML object")?;
     let skills_key = serde_yaml::Value::String("skills".to_string());
     if !mapping.contains_key(&skills_key) {
-        mapping.insert(skills_key.clone(), serde_yaml::Value::Mapping(serde_yaml::Mapping::new()));
+        mapping.insert(
+            skills_key.clone(),
+            serde_yaml::Value::Mapping(serde_yaml::Mapping::new()),
+        );
     }
     let skills_map = mapping
         .get_mut(&skills_key)
@@ -384,7 +407,10 @@ pub fn set_skills_master_enabled(enabled: bool) -> Result<(), String> {
     let mapping = val.as_mapping_mut().ok_or("Config is not a YAML object")?;
     let skills_key = serde_yaml::Value::String("skills".to_string());
     if !mapping.contains_key(&skills_key) {
-        mapping.insert(skills_key.clone(), serde_yaml::Value::Mapping(serde_yaml::Mapping::new()));
+        mapping.insert(
+            skills_key.clone(),
+            serde_yaml::Value::Mapping(serde_yaml::Mapping::new()),
+        );
     }
     let skills_map = mapping
         .get_mut(&skills_key)
@@ -412,6 +438,22 @@ pub fn get_system_prompt() -> Result<String, String> {
 
 pub fn save_system_prompt(content: &str) -> Result<(), String> {
     let p = get_agents_md_path()?;
+    if let Some(parent) = p.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    std::fs::write(&p, content).map_err(|e| e.to_string())
+}
+pub fn get_system_md() -> Result<String, String> {
+    let p = get_system_md_path()?;
+    if p.exists() {
+        std::fs::read_to_string(&p).map_err(|e| e.to_string())
+    } else {
+        Ok(String::new())
+    }
+}
+
+pub fn save_system_md(content: &str) -> Result<(), String> {
+    let p = get_system_md_path()?;
     if let Some(parent) = p.parent() {
         let _ = std::fs::create_dir_all(parent);
     }

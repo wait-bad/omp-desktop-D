@@ -94,9 +94,6 @@ function TabBar({ projects, activeId, onSelect, onClose, peer, onNew }) {
         <Icon name="plus" size={11} />
       </button>
       <div style={{ flex: 1 }} />
-      <div className="tabs-right mono">
-        <span style={{ color: "var(--fg-4)" }}>v0.4.7-aurora</span>
-      </div>
     </div>
   );
 }
@@ -137,11 +134,6 @@ function SessionMinimap({ messages, hoveredIdx, onHover, onClick }) {
 
   return (
     <div className="minimap">
-      <div className="minimap-head">
-        <Icon name="minimap" size={11} color="var(--fg-3)" />
-        <span className="mono" style={{ color: "var(--fg-3)" }}>session</span>
-        <span className="mono" style={{ marginLeft: "auto", color: "var(--fg-4)" }}>{messages.length}</span>
-      </div>
       <div className="minimap-grid">
         {messages.map((m, i) => {
           let hue = "var(--fg-5)";
@@ -222,15 +214,303 @@ function PeerSession({ peer }) {
   );
 }
 
+// ── Reserved Animation / GIF Stage (Hardware Isolated) ──
+function AnimationStageCard({ isWorking, staticImg, activeVideo, ratioMode = "auto" }) {
+  const videoRef = React.useRef(null);
+  const [dbStatic, setDbStatic] = React.useState(null);
+  const [dbVideo, setDbVideo] = React.useState(null);
+  const [detectedRatio, setDetectedRatio] = React.useState("1:1");
+  const [activated, setActivated] = React.useState(true);
+  const [activeWorking, setActiveWorking] = React.useState(Boolean(isWorking));
+  const timerRef = React.useRef(null);
+
+  // 任务结束 5 秒平滑防抖退出：工作状态变为 false 时，启动 5s 延时保护窗口
+  React.useEffect(() => {
+    if (isWorking) {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      setActiveWorking(true);
+    } else {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        setActiveWorking(false);
+        timerRef.current = null;
+      }, 5000);
+    }
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [isWorking]);
+
+  React.useEffect(() => {
+    try { localStorage.setItem("omp:stage_media_activated", "1"); } catch {}
+  }, []);
+
+  React.useEffect(() => {
+    if (window.mediaDB) {
+      window.mediaDB.get("stageStaticImg").then(v => v && setDbStatic(v));
+      window.mediaDB.get("stageActiveVideo").then(v => v && setDbVideo(v));
+    }
+    const onMediaChange = (e) => {
+      if (e.detail?.key === "stageStaticImg") setDbStatic(e.detail.value);
+      if (e.detail?.key === "stageActiveVideo") setDbVideo(e.detail.value);
+    };
+    const onActivated = () => setActivated(true);
+    window.addEventListener("omp:mediachange", onMediaChange);
+    window.addEventListener("omp:stage_activated", onActivated);
+    return () => {
+      window.removeEventListener("omp:mediachange", onMediaChange);
+      window.removeEventListener("omp:stage_activated", onActivated);
+    };
+  }, []);
+
+  const effectiveStatic = dbStatic || staticImg;
+  const effectiveVideo  = dbVideo || activeVideo;
+
+  const hasActiveMedia = activeWorking && Boolean(effectiveVideo);
+  const isVideo = hasActiveMedia && (
+    effectiveVideo.startsWith("data:video/") ||
+    effectiveVideo.includes("video/mp4") ||
+    effectiveVideo.includes("video/webm") ||
+    (!effectiveVideo.startsWith("data:image/") && !effectiveVideo.startsWith("blob:image/"))
+  );
+
+  const handleMediaSize = (w, h) => {
+    if (h > 0) {
+      const r = w / h;
+      if (r <= 0.85) setDetectedRatio("3:4");
+      else setDetectedRatio("1:1");
+    }
+  };
+
+  const activeRatio = (ratioMode && ratioMode !== "auto") ? ratioMode : detectedRatio;
+  const ratioClass = activeRatio === "3:4" ? "ratio-3-4" : "ratio-1-1";
+
+  const triggerPlay = React.useCallback(() => {
+    localStorage.setItem("omp:stage_media_activated", "1");
+    setActivated(true);
+    if (videoRef.current) {
+      const v = videoRef.current;
+      v.defaultMuted = true;
+      v.muted = true;
+      v.play().catch(e => console.warn("[AnimationStage] play caught:", e));
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (isVideo && videoRef.current) {
+      triggerPlay();
+    }
+  }, [isVideo, effectiveVideo, activeWorking, triggerPlay]);
+
+  return (
+    <div
+      className={`rail-card glass animation-stage-card ${ratioClass}`}
+      title={activeWorking ? "工作中 · 点击可确保视频播放" : "空闲待机 · 静态模式"}
+      onClick={triggerPlay}
+      style={{ cursor: "pointer" }}
+    >
+      {/* 状态指示角标 */}
+      <span className={`chip mono ${activeWorking ? "accent" : "muted"}`}
+        style={{
+          position: "absolute",
+          top: 6,
+          right: 6,
+          zIndex: 5,
+          fontSize: 9,
+          padding: "1px 6px",
+          pointerEvents: "none",
+          background: activeWorking ? "color-mix(in oklab, var(--accent) 18%, var(--bg-surface))" : "var(--bg-surface)",
+          borderColor: activeWorking ? "var(--accent)" : "var(--line)",
+        }}>
+        <span className="dot" style={{ background: activeWorking ? "var(--accent)" : "var(--fg-4)", width: 5, height: 5 }} />
+        {activeWorking ? "WORKING" : "IDLE"}
+      </span>
+
+      <div className="animation-stage-inner">
+        {hasActiveMedia ? (
+          isVideo ? (
+            <video
+              ref={videoRef}
+              src={effectiveVideo}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="auto"
+              onLoadedMetadata={(e) => {
+                handleMediaSize(e.currentTarget.videoWidth, e.currentTarget.videoHeight);
+              }}
+              onCanPlay={(e) => {
+                e.currentTarget.muted = true;
+                e.currentTarget.play().catch(() => {});
+              }}
+              onLoadedData={(e) => {
+                e.currentTarget.muted = true;
+                e.currentTarget.play().catch(() => {});
+              }}
+              onTimeUpdate={(e) => {
+                const v = e.currentTarget;
+                if (v.duration > 0 && v.currentTime >= v.duration - 0.12) {
+                  v.currentTime = 0;
+                  v.play().catch(() => {});
+                }
+              }}
+              onEnded={(e) => {
+                const v = e.currentTarget;
+                v.currentTime = 0;
+                v.play().catch(() => {});
+              }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: "calc(var(--r-2) - 1px)" }}
+            />
+          ) : (
+            <img
+              src={effectiveVideo}
+              alt="active animation"
+              onLoad={(e) => {
+                handleMediaSize(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight);
+              }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", borderRadius: "calc(var(--r-2) - 1px)" }}
+            />
+          )
+        ) : effectiveStatic ? (
+          <img
+            src={effectiveStatic}
+            alt="static stage"
+            onLoad={(e) => {
+              handleMediaSize(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight);
+            }}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: "block",
+              borderRadius: "calc(var(--r-2) - 1px)",
+              filter: activeWorking ? "drop-shadow(0 0 6px var(--accent))" : "none",
+              transition: "filter 300ms ease",
+            }}
+          />
+        ) : (
+          <>
+            <div className="stage-corner top-left" />
+            <div className="stage-corner top-right" />
+            <div className="stage-corner bottom-left" />
+            <div className="stage-corner bottom-right" />
+            <div className="stage-placeholder-text mono">
+              <Icon name="sparkle" size={13} color={activeWorking ? "var(--accent)" : "var(--fg-4)"} />
+              <span style={{ color: activeWorking ? "var(--accent)" : "var(--fg-4)" }}>
+                {activeWorking ? "agent working…" : "stage · reserved"}
+              </span>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Hardware Power Meter Peripheral ────────────────────────
+function PowerMeterCard() {
+  const [metrics, setMetrics] = React.useState(null);
+
+  React.useEffect(() => {
+    let mounted = true;
+    const fetchPower = async () => {
+      if (document.hidden) return;
+      try {
+        if (window.__TAURI__?.core?.invoke) {
+          const res = await window.__TAURI__.core.invoke("get_hardware_power_metrics");
+          if (mounted && res) setMetrics(res);
+        }
+      } catch (err) {
+        console.warn("[PowerMeter] query failed:", err);
+      }
+    };
+
+    fetchPower();
+    const timer = setInterval(fetchPower, 2000);
+    return () => {
+      mounted = false;
+      clearInterval(timer);
+    };
+  }, []);
+
+  if (!metrics) return null;
+
+  const pct = metrics.batteryPct ?? 100;
+  const isAc = metrics.isAc;
+
+  // 动态电量颜色计算: >70% 翠绿, 40-70% 科技蓝, 20-40% 警告黄, <20% 告急红
+  const getBatteryTone = (p, ac) => {
+    if (ac) return { color: "var(--accent)", label: "AC 供电" };
+    if (p >= 70) return { color: "#10b981", label: `${p}%` };
+    if (p >= 40) return { color: "#06b6d4", label: `${p}%` };
+    if (p >= 20) return { color: "#f59e0b", label: `${p}%` };
+    return { color: "#f43f5e", label: `${p}% 告急` };
+  };
+
+  const tone = getBatteryTone(pct, isAc);
+
+  return (
+    <div className="rail-card glass power-meter-card">
+      <div className="pm-head" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Icon name="bolt" size={13} color={tone.color} />
+          <span className="pm-title" style={{ color: "var(--fg-2)" }}>POWER METER</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+          <span style={{ fontSize: 16, fontWeight: 700, fontFamily: "var(--font-mono)", color: tone.color, lineHeight: 1 }}>
+            {isAc ? `AC · ${pct}%` : `${pct}%`}
+          </span>
+          <span style={{ fontSize: 10, color: "var(--fg-4)", fontFamily: "var(--font-mono)" }}>
+            {isAc ? "POWER" : "BATT"}
+          </span>
+        </div>
+      </div>
+
+      <div className="pm-main-grid">
+        <div className="pm-metric">
+          <span className="pm-label">Total Power</span>
+          <span className="pm-val-hero" style={{ color: "var(--accent)" }}>
+            {metrics.totalPowerW.toFixed(1)}<span className="pm-unit">W</span>
+          </span>
+        </div>
+        <div className="pm-metric">
+          <span className="pm-label">CPU Package</span>
+          <span className="pm-val-hero" style={{ color: "var(--cyan)" }}>
+            {metrics.cpuPkgW.toFixed(1)}<span className="pm-unit">W</span>
+          </span>
+        </div>
+      </div>
+
+      <div className="pm-sub-grid" style={{ gridTemplateColumns: "1fr 1fr", gap: "2px 8px" }}>
+        <div className="pm-sub-item">
+          <span>Cores:</span>
+          <span className="pm-sub-val">{metrics.cpuCoresW.toFixed(1)} W</span>
+        </div>
+        <div className="pm-sub-item">
+          <span>CPU 占用:</span>
+          <span className="pm-sub-val" style={{ color: "var(--accent)" }}>{metrics.cpuUsagePct.toFixed(1)}%</span>
+        </div>
+      </div>
+
+      <div className="pm-battery-tube" title={`当前电池剩余: ${pct}%${isAc ? " (已连接电源适配器)" : ""}`}>
+        <div className="pm-battery-fill" style={{ width: `${pct}%`, background: tone.color }} />
+      </div>
+    </div>
+  );
+}
+
 // ── Right rail: ambient peripherals stacked ──────────────────────────
-function AmbientRail({ ctx, activity, peer, messages, microcopy, onClose, sparklineValues, hoveredMsgIdx, onMinimapHover, onMinimapClick }) {
-  // Use live tps samples. Before the first turn, sparklineValues is all zeros
-  // which renders as a flat baseline — honest, not fake random data.
+function AmbientRail({ ctx, activity, peer, messages, microcopy, onClose, sparklineValues, hoveredMsgIdx, onMinimapHover, onMinimapClick, showPowerMeter = true, showAnimationStage = true, isWorking = false, stageStaticImg = "", stageActiveVideo = "", stageRatioMode = "auto" }) {
   const sparkVals = (sparklineValues && sparklineValues.length > 0)
     ? sparklineValues
     : Array(30).fill(0);
   return (
     <aside className="rail">
+      {/* 1. 顶部 ambient 标题与关闭按钮 */}
       <div className="rail-head">
         <span className="mono" style={{ color: "var(--fg-3)" }}>ambient</span>
         <button className="btn icon ghost" onClick={onClose} title="hide rail">
@@ -238,6 +518,7 @@ function AmbientRail({ ctx, activity, peer, messages, microcopy, onClose, sparkl
         </button>
       </div>
 
+      {/* 2. 最上边的 ambient 原有指标 (TokenGauge + Sparkline) */}
       <div className="rail-card glass">
         <TokenGauge used={ctx.used} total={ctx.total} pct={ctx.pct}
           label={ctx.label} sub={`cost ${ctx.cost} · ${ctx.tokensPerSec} t/s`} />
@@ -250,35 +531,19 @@ function AmbientRail({ ctx, activity, peer, messages, microcopy, onClose, sparkl
         </div>
       </div>
 
-      <div className="rail-card glass">
-        <div className="rail-card-head">
-          <Icon name="radar" size={11} color="var(--accent)" />
-          <span className="mono" style={{ color: "var(--fg-2)" }}>agent radar</span>
-          <span className="chip muted mono" style={{ marginLeft: "auto" }}>last 60s</span>
-        </div>
-        <ActivityRadar activity={activity} tps={ctx.tokensPerSec} />
-        <div className="legend">
-          {Object.entries(TOOL_META).filter(([k]) => ["read","search","edit","bash"].includes(k)).map(([k, m]) => (
-            <span key={k} className="legend-item">
-              <span style={{ background: m.color }} /> {m.label}
-            </span>
-          ))}
-        </div>
-      </div>
+      {/* 3. animation 自适应舞台 (支持开关控制与 5s 优雅迟滞) */}
+      {showAnimationStage && (
+        <AnimationStageCard isWorking={isWorking} staticImg={stageStaticImg} activeVideo={stageActiveVideo} ratioMode={stageRatioMode} />
+      )}
+      {/* 4. power meter 功率计模块 */}
+      {showPowerMeter && <PowerMeterCard />}
 
-      <div className="rail-card glass">
-        <div className="rail-card-head">
-          <Icon name="split" size={11} color="var(--cyan)" />
-          <span className="mono" style={{ color: "var(--fg-2)" }}>peer session</span>
-          <span className="chip" style={{ marginLeft: "auto", color: "var(--cyan)", borderColor: "color-mix(in oklab, var(--cyan) 30%, var(--line))" }}>split</span>
-        </div>
-        <PeerSession peer={peer} />
-      </div>
-
-      <div className="rail-card glass" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 120 }}>
-        <div className="rail-card-head">
+      {/* 5. minimap 小地图在最底下 */}
+      <div className="rail-card glass" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 140 }}>
+        <div className="rail-card-head" style={{ display: "flex", alignItems: "center" }}>
           <Icon name="minimap" size={11} color="var(--fg-3)" />
           <span className="mono" style={{ color: "var(--fg-2)" }}>minimap</span>
+          <span className="mono" style={{ marginLeft: "auto", color: "var(--fg-4)", fontSize: "11px" }}>{messages.length}</span>
         </div>
         <SessionMinimap messages={messages} hoveredIdx={hoveredMsgIdx} onHover={onMinimapHover} onClick={onMinimapClick} />
       </div>
@@ -286,4 +551,4 @@ function AmbientRail({ ctx, activity, peer, messages, microcopy, onClose, sparkl
   );
 }
 
-Object.assign(window, { WindowChrome, TabBar, StatusBar, AmbientRail, SessionMinimap, PeerSession });
+Object.assign(window, { WindowChrome, TabBar, StatusBar, AmbientRail, SessionMinimap, PeerSession, AnimationStageCard, PowerMeterCard });

@@ -5,7 +5,7 @@
 
 
 // ── The composer (input + plan/steer modes + send) ────────────────────
-function Composer({ onSend, onPick, planMode, onTogglePlan, prefixEnabled, onTogglePrefix, onOpenCmd, onOpenModel, currentModel, thinking, onCycleThinking, isStreaming, onAbort, onApprove, annotationCount = 0, microcopy }) {
+function Composer({ onSend, onPick, planMode, onTogglePlan, onOpenCmd, onOpenModel, currentModel, thinking, onCycleThinking, isStreaming, onAbort, onApprove, annotationCount = 0, microcopy }) {
   const [text, setText]               = React.useState("");
   const [activeIdx, setActiveIdx]     = React.useState(0);
   const [attachments, setAttachments] = React.useState([]);
@@ -481,7 +481,7 @@ function Composer({ onSend, onPick, planMode, onTogglePlan, prefixEnabled, onTog
 
       <div className="composer-foot">
         <button className="composer-pill" onClick={onOpenModel}>
-          <span className="dot live" />
+          <span className="dot" style={{ background: "var(--accent)" }} />
           <span style={{ color: "var(--fg-2)" }}>{currentModel?.name}</span>
           <Icon name="chev" size={10} color="var(--fg-4)" />
         </button>
@@ -492,10 +492,6 @@ function Composer({ onSend, onPick, planMode, onTogglePlan, prefixEnabled, onTog
         <button className={`composer-pill ${planMode ? "on" : ""}`} onClick={onTogglePlan}>
           <Icon name="plan" size={11} color={planMode ? "var(--amber)" : "var(--fg-3)"} />
           <span style={{ color: planMode ? "var(--amber)" : "var(--fg-2)" }}>plan mode</span>
-        </button>
-        <button className={`composer-pill ${prefixEnabled ? "on" : ""}`} onClick={onTogglePrefix} title={prefixEnabled ? "独立提示词: 已启用 (点击切换)" : "独立提示词: 已停用 (点击切换)"}>
-          <Icon name="sparkle" size={11} color={prefixEnabled ? "var(--accent)" : "var(--fg-3)"} />
-          <span style={{ color: prefixEnabled ? "var(--accent)" : "var(--fg-2)" }}>独立提示词 {prefixEnabled ? "ON" : "OFF"}</span>
         </button>
         <div style={{ flex: 1 }} />
       </div>

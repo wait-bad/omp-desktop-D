@@ -79,6 +79,13 @@ function App() {
   useThemeEffect(t);
   useCommandShortcut(setBridgeOpen, setBridgeView);
 
+  // Notify splash screen that React root has mounted and ready
+  React.useEffect(() => {
+    if (typeof window.__OMP_SPLASH_DISMISS__ === "function") {
+      window.__OMP_SPLASH_DISMISS__(false);
+    }
+  }, []);
+
   // Fetch OAuth providers whenever the login view opens (ensures fresh auth status)
   React.useEffect(() => {
     if (!bridgeOpen || bridgeView !== "login") return;
@@ -130,10 +137,6 @@ function App() {
       }
     }
 
-    // If custom prefix prompt is enabled, prepend to actual payload but keep displayMsg clean
-    if (t.prefixEnabled && t.customPrefix && t.customPrefix.trim()) {
-      msg = `${t.customPrefix.trim()}\n\n${msg}`;
-    }
 
     const payloadImages = hasImages ? images.map(img => ({ data: img.data, mimeType: img.mimeType })) : undefined;
 
@@ -253,8 +256,6 @@ function App() {
                   setPlanMode(next);
                   if (!next) planStartedRef.current = false;
                 }}
-                prefixEnabled={t.prefixEnabled ?? false}
-                onTogglePrefix={() => setTweak("prefixEnabled", !t.prefixEnabled)}
                 onOpenCmd={() => openBridge("commands")}
                 onOpenModel={() => openBridge("models")}
                 currentModel={model}
@@ -289,6 +290,12 @@ function App() {
                 hoveredMsgIdx={hoveredMsgIdx}
                 onMinimapHover={setHoveredMsgIdx}
                 onMinimapClick={handleMinimapClick}
+                showPowerMeter={t.showPowerMeter !== false}
+                showAnimationStage={t.showAnimationStage !== false}
+                isWorking={streaming || isWaitingFirstToken}
+                stageStaticImg={t.stageStaticImg || ""}
+                stageActiveVideo={t.stageActiveVideo || ""}
+                stageRatioMode={t.stageRatioMode || "auto"}
               />
             )}
           </div>

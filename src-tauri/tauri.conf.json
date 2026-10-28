@@ -9,7 +9,7 @@
   "app": {
     "withGlobalTauri": true,
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ipc: http://ipc.localhost; frame-src 'none'; object-src 'none'",
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self' ipc: http://ipc.localhost; frame-src 'none'; object-src 'none'",
       "dangerousDisableAssetCspModification": true,
       "assetProtocol": {
         "enable": false,
@@ -27,7 +27,8 @@
         "minHeight": 640,
         "decorations": false,
         "shadow": true,
-        "center": true
+        "center": true,
+        "backgroundColor": "#0d0f12"
       }
     ]
   },

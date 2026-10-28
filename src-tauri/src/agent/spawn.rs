@@ -1,7 +1,7 @@
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use std::process::{Child, Command, Stdio};
-use std::sync::OnceLock;
+use std::sync::LazyLock;
 
 /// Windows: prevent a console window from flashing when we spawn omp.exe
 /// from a GUI-subsystem parent. omp speaks JSON-RPC over stdio, so it's
@@ -20,22 +20,18 @@ const CANDIDATES: &[&str] = if cfg!(windows) {
 
 // ── rpc-ui probe ─────────────────────────────────────────────────────────────
 
-/// Probe result cache — evaluated once per process lifetime.
-static RPC_UI_SUPPORTED: OnceLock<bool> = OnceLock::new();
+/// Modern omp versions (v18+) fully support `rpc-ui`.
+/// Default directly to `rpc-ui` so cold start is never blocked by a ~2.4s
+/// synchronous `omp --help` invocation on the main thread during setup.
+static RPC_MODE: LazyLock<&'static str> = LazyLock::new(|| "rpc-ui");
 
 /// Return the RPC mode string to use when spawning omp.
-/// Calls `omp --help` on first use and checks whether `rpc-ui` appears in the
-/// output. Result is cached in a `OnceLock` for the process lifetime.
 pub(super) fn rpc_mode() -> &'static str {
-    if *RPC_UI_SUPPORTED.get_or_init(probe_rpc_ui) {
-        "rpc-ui"
-    } else {
-        "rpc"
-    }
+    *RPC_MODE
 }
 
 /// Return true if the given help text advertises `rpc-ui` mode support.
-/// Extracted as a pure function so it can be unit-tested without spawning omp.
+#[allow(dead_code)]
 fn help_text_supports_rpc_ui(text: &str) -> bool {
     text.contains("rpc-ui")
 }
@@ -45,7 +41,7 @@ fn help_text_supports_rpc_ui(text: &str) -> bool {
 /// `--help` exits immediately without model initialisation or stdin reads,
 /// so there are no pipe-buffering races and no dependency on API keys being
 /// present in the environment. Old omp binaries that don't know about
-/// `rpc-ui` simply won't mention it in their help output.
+#[allow(dead_code)]
 fn probe_rpc_ui() -> bool {
     for name in CANDIDATES {
         let mut cmd = Command::new(name);
