@@ -58,3 +58,7 @@ docs/superpowers/
 /test-video.html
 /test.mp4
 /src-tauri/target/debug/omp-desktop-running.exe
+
+# ── Private / local work notes ────────────────────────────────────────────────
+/工作笔记*.md
+/*笔记*.md

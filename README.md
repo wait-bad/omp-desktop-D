@@ -78,9 +78,36 @@
 ### 4. 关键体验优化与稳定性修复 (Stability & Experience)
 - **修复 Hub 编译时闪退问题**：加固了进程通信与生命周期处理逻辑，彻底修复了在特定场景（如 Hub 编译处理）下可能导致软件崩溃闪退的问题。
 - **新增等待首字/思考中动态指示**：彻底消除用户发送消息后等待响应时的界面“假死感”；在模型吐出首个 Token 之前，呈现动态脉冲光点与“正在思考中”的实时状态指示。
+- **输入框原生图片附件接入**：支持点击附件按钮选图、系统剪贴板（微信/截屏工具）直接 `Ctrl+V` 粘贴、文件拖拽吸附；配备缩略图预览条与删除按钮，完整支持图文多模态混发。
+- **长会话流式自动滚动加固**：彻底根治流式高速追加时的滚动误判悬停，结合 18 帧自适应贴底校准循环，确保 100% 直达最底部。
+
+### 5. 极限冷启动治理与 Zero-Runtime Babel (Cold Boot & Performance)
+- **彻底剔除 3MB 运行时 Babel 编译器**：新增基于 esbuild 的极速 JSX 预编译管线（`scripts/build-jsx.mjs`，全量转译 19 个 JSX 仅需 ~120ms），首屏执行耗时从 3000ms 降至 20ms。
+- **0ms Rust 主线程 Setup**：移除启动阶段同步探测 `omp --help` 的 2.4 秒阻塞死等，改为静态常数级 `rpc-ui` 模式初始化。
+- **暗黑底色防闪保护**：窗口原生画刷设为 `#0d0f12`，消灭 Windows 无边框冷启动期间的白屏闪烁。
+- **模型注册表持久化与乐观就绪**：冷启动与新建 Tab 会话时瞬间呈现已知模型，彻底消灭长达十几秒的“无模型可用”假死空窗期。
+- **失效网络驱动器排查**：自动隔离不存在的网络驱动器路径，避免 Windows 底层网络超时引发的子进程卡顿。
+
+### 6. 即时视频开屏与自定义控制台 (Instant Splash Video)
+- **即时全屏视频开屏 (splash.mp4)**：在窗口弹出初期秒播科技开屏动效，彻底取代冰冷大黑屏。
+- **弹性跳过与防秒杀机制**：右下角带有毛玻璃跳过提示，按下**空格键 / 任意键**或鼠标点击即可在后台就绪时 450ms 平滑淡出；防秒杀状态机杜绝未播放完成时的画面闪退。
+- **设置中心专属开屏控制台**：
+  - 支持一键关闭开屏动效（极客 0ms 秒进主界面）；
+  - 支持随心上传本地任意 `.mp4` / `.webm` 视频，**依托 IndexedDB（`mediaDB`）大容量持久化**突破浏览器配额；
+  - 界面内置画中画微缩循环播放器实时预览，随附一键恢复默认视频功能。
+
+### 7. 极客硬件功耗监控仪 (Hardware Power Meter)
+- **Intel RAPL 物理寄存器直读**：通过 Windows PDH 与 RAPL MSR 计数器纳秒级读取 CPU Package、CPU Cores 物理瓦数与整机功耗。
+- **真实整机 CPU 占用率计算**：基于内核 `GetSystemTimes` 精准推导实时 CPU 占用率。
+- **多阶动态变色大字号电量**：右上角醒目呈现充放电状态与电量百分比（翠绿/科技青/琥珀黄/告急红）。
+
+### 8. 正方形专属动静双模态动画舞台 (Animation Stage)
+- **动静双模态智能联动**：智能体工作中自动连播动态视频/GIF，待机时平滑切回正方形静态插画。
+- **零延迟无缝循环 (Seamless Looping)**：抹平视频循环播放间的停顿与黑屏闪烁。
+- **5 秒单稳态防抖迟滞退出 (Hysteresis Delay)**：防止 Agent 工具切换间隙画面频繁抽搐跳变。
+- **超限媒体无损仓储**：依托 IndexedDB 彻底解除了浏览器 LocalStorage 5MB 的存储上限。
 
 ---
-
 ## 系统架构 (Architecture)
 
 ```
@@ -175,9 +202,13 @@ npm run build
 
 ```text
 omp-desktop-D/
+├── scripts/                    # 高性能预构建脚本
+│   └── build-jsx.mjs           # esbuild JSX 极速预编译管线 (~120ms)
+│
 ├── src/                        # 前端界面（由 Tauri 本地静态服务承载）
-│   ├── index.html              # 应用主入口
-│   ├── app-live.jsx            # React 根组件（状态流转、指令派发与视图装配）
+│   ├── index.html              # 应用主入口（集成全屏即时视频开屏层）
+│   ├── splash.mp4              # 默认硬件秒解开屏动画
+│   ├── app-live.jsx / .js      # React 根组件（状态流转、指令派发与视图装配）
 │   ├── live.js                 # Tauri IPC 通信桥梁（封装 OMP_BRIDGE）
 │   ├── adapter.js              # RPC 数据到 UI 模型的无副作用适配转换器
 │   ├── model-names.js          # 模型 ID 到别名的字典映射
@@ -188,29 +219,30 @@ omp-desktop-D/
 │   │
 │   ├── app/                    # 核心状态钩子与常量配置
 │   │   ├── constants.js        # 默认微调参数、模型占位定义
-│   │   └── use-bridge-snapshot.jsx  # 状态订阅与快捷键桥接 Hook
+│   │   └── use-bridge-snapshot.jsx / .js # 状态订阅与快捷键桥接 Hook
 │   │
 │   └── design/                 # 业务功能组件域
+│       ├── media-db.js         # IndexedDB 大容量无损媒体资产管理
 │       ├── ui/                 # 基础原子组件（图标库、雷达图、看板批注等）
 │       ├── chat/               # 对话视图（用户气泡、助手气泡、工具执行卡片等）
-│       ├── settings/           # 模型管理、历史记录模态框
+│       ├── settings/           # 模型管理、历史记录模态框与开屏控制台
 │       ├── tweaks/             # 实时微调与个性化侧边控制台
 │       ├── layout/             # 模块化分层 CSS 样式
-│       ├── chrome.jsx          # 自定义窗口控制、标签栏、小地图、底栏
-│       ├── composer.jsx        # 富文本输入框与 ⌘K 快捷桥
-│       └── panels.jsx          # 计划模式专属看板
+│       ├── chrome.jsx / .js    # 自定义窗口控制、标签栏、小地图、硬件功率计、舞台
+│       ├── composer.jsx / .js  # 富文本输入框、多模态附件条与 ⌘K 快捷桥
+│       └── panels.jsx / .js    # 计划模式专属看板
 │
 ├── src-tauri/                  # Rust 原生后端
 │   ├── src/
 │   │   ├── main.rs             # 应用二进制入口
 │   │   ├── lib.rs              # Tauri 注册中心与 Command 分发
+│   │   ├── power_metrics.rs    # Windows RAPL 物理瓦数与真实 CPU 监测
 │   │   ├── history.rs          # 历史会话恢复与会话管理
 │   │   ├── mcp_skill.rs        # MCP 与技能配置管理
 │   │   └── agent/              # omp RPC 子进程管理（生命周期、管道读写）
 │   ├── Cargo.toml
 │   └── tauri.conf.json         # 窗口配置与安全策略
 └── package.json
-```
 
 ---
 

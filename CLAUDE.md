@@ -1,12 +1,14 @@
 # CLAUDE.md
 
-Tauri 2 desktop shell for `omp` (oh-my-pi). React UI loaded from `src/` by Tauri's asset server. Rust backend spawns `omp --mode rpc` per tab. **No bundler** — JSX is transpiled in-browser by `@babel/standalone`.
+Tauri 2 desktop shell for `omp` (oh-my-pi). React UI loaded from `src/` by Tauri's asset server. Rust backend spawns `omp --mode rpc` per tab. **Zero-runtime Babel** — JSX is pre-transpiled to native `.js` by `scripts/build-jsx.mjs` (powered by `esbuild`, ~100ms) with automatic `predev` / `prebuild` hooks.
 
 ## Commands
 
 | Task | Command |
 |---|---|
 | Install Tauri CLI | `npm install` |
+| Precompile JSX | `npm run build:jsx` |
+| Watch JSX changes | `npm run watch:jsx` |
 | Dev | `npm run dev` |
 | Prod build | `npm run build` |
 | Rust check (CI) | `cd src-tauri && cargo check --locked` |
@@ -41,20 +43,20 @@ One tab = one omp process. `default` session started in `lib.rs::setup`; new tab
 
 Script order **is** the dependency graph:
 
-1. Vendored libs: React, ReactDOM, Babel, `marked.min.js`, `highlight.min.js` + marked-wiring inline.
-2. Tweaks: `tweaks/style.js`, `tweaks/use-tweaks.js` (plain, IIFE) → `tweaks/panel.jsx`, `tweaks/controls.jsx` (Babel; controls depends on panel).
-3. UI primitives: `ui/icons.jsx` (defines `Icon`, `TOOL_META`) → `ui/sparks.jsx` → `ui/markdown.jsx` → `ui/plan-annotations.jsx`.
-4. Chat: `chat/user-bubble.jsx` → `chat/eval-cell.jsx` → `chat/assistant-bubble.jsx` → `chat/tool-card.jsx` → `chat/chat-view.jsx`.
-5. `design/composer.jsx`, `design/chrome.jsx`, `design/panels.jsx`.
-6. Live data: `model-names.js` → `adapter.js` → `live.js`.
-7. App helpers: `app/constants.js` (plain, IIFE) → `app/use-bridge-snapshot.jsx`.
-8. `app-live.jsx` last.
-
+1. Vendored libs: React, ReactDOM, `marked.min.js`, `highlight.min.js` + marked-wiring inline (no Babel runtime).
+2. Media DB: `design/media-db.js` (IndexedDB storage for large assets).
+3. Tweaks: `tweaks/style.js`, `tweaks/use-tweaks.js` → `tweaks/panel.js`, `tweaks/controls.js`.
+4. UI primitives: `ui/icons.js` (defines `Icon`, `TOOL_META`) → `ui/sparks.js` → `ui/markdown.js` → `ui/plan-annotations.js`.
+5. Chat: `chat/user-bubble.js` → `chat/eval-cell.js` → `chat/assistant-bubble.js` → `chat/tool-card.js` → `chat/ask-bubble.js` → `chat/chat-view.js`.
+6. Design: `design/composer.js`, `design/chrome.js`, `design/panels.js`, `design/settings/models-modal.js`, `design/settings/history-modal.js`.
+7. Live data: `model-names.js` → `adapter.js` → `live.js`.
+8. App helpers: `app/constants.js` → `app/use-bridge-snapshot.js`.
+9. `app-live.js` last.
 When adding a file, insert at the correct point — there is no resolver to catch ordering bugs.
 
 ### IIFE rule
 
-Plain `<script>` tags share document top-level scope; Babel `type="text/babel"` scripts intersect with it via destructures. Every plain script declaring top-level `const`/`function`/`class` **MUST** be `(function(){ …; window.X = X; })();` — see `app/constants.js`, `tweaks/style.js`, `tweaks/use-tweaks.js`. Bare `window.X = {…}` assignments are fine (`model-names.js`). Babel-transformed files do not need wrapping.
+Every top-level script declaring `const`/`function`/`class` **MUST** be wrapped in an IIFE (`(function(){ …; window.X = X; })();`) — see `app/constants.js`, `tweaks/style.js`, `tweaks/use-tweaks.js`. `scripts/build-jsx.mjs` automatically wraps all transformed `.js` files in IIFEs during build. Bare `window.X = {…}` assignments are fine (`model-names.js`).
 
 ## Authoritative source
 
@@ -94,7 +96,7 @@ Trigger: 6th major component in one file, or 4th unrelated concern in one Rust m
 - Frameless window via DWM: `decorations: false` + `platform.css` strips outer padding/shadow under `.tauri-native`. CSS uses `color-mix(in oklab, …)` — needs WebView2 ≥ 101.
 - Strict CSP: `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; …`. Asset protocol disabled. `tauri-plugin-shell` deliberately removed. Don't add CDN tags or `convertFileSrc()` without revisiting both.
 - Thinking levels are RPC-driven. Cycle = `cycle_thinking_level` (response carries new level). Set = `set_thinking_level`. Valid: `off | minimal | low | medium | high | xhigh`. Never invent fallbacks like `auto`/`extended` — RPC silently ignores them.
-- No CDN dependencies. React/ReactDOM/Babel/marked/hljs are vendored. App must work offline.
+- No CDN dependencies. React/ReactDOM/marked/hljs are vendored. App must work offline. Zero runtime compiler (Babel eliminated).
 
 ## Code style
 
