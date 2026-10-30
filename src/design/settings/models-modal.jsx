@@ -1413,9 +1413,11 @@
             )}
             {/* Tab 5: Animation Stage Settings */}
             {activeTab === "stage" && (() => {
-              const effectiveStatic = dbStaticImg || tweaks.stageStaticImg;
-              const effectiveVideo = dbActiveVideo || tweaks.stageActiveVideo;
+              const effectiveStatic = dbStaticImg || tweaks.stageStaticImg || "stage.jpg";
+              const effectiveVideo = dbActiveVideo || tweaks.stageActiveVideo || "stage.mp4";
               const isVideo = effectiveVideo && (
+                effectiveVideo.endsWith(".mp4") ||
+                effectiveVideo.endsWith(".webm") ||
                 effectiveVideo.startsWith("data:video/") ||
                 effectiveVideo.includes("video/mp4") ||
                 effectiveVideo.includes("video/webm")

@@ -141,10 +141,10 @@ function AnimationStageCard({ isWorking, staticImg, activeVideo, ratioMode = "au
       window.removeEventListener("omp:stage_activated", onActivated);
     };
   }, []);
-  const effectiveStatic = dbStatic || staticImg;
-  const effectiveVideo = dbVideo || activeVideo;
+  const effectiveStatic = dbStatic || staticImg || "stage.jpg";
+  const effectiveVideo = dbVideo || activeVideo || "stage.mp4";
   const hasActiveMedia = activeWorking && Boolean(effectiveVideo);
-  const isVideo = hasActiveMedia && (effectiveVideo.startsWith("data:video/") || effectiveVideo.includes("video/mp4") || effectiveVideo.includes("video/webm") || !effectiveVideo.startsWith("data:image/") && !effectiveVideo.startsWith("blob:image/"));
+  const isVideo = hasActiveMedia && (effectiveVideo.endsWith(".mp4") || effectiveVideo.endsWith(".webm") || effectiveVideo.startsWith("data:video/") || effectiveVideo.includes("video/mp4") || effectiveVideo.includes("video/webm") || !effectiveVideo.startsWith("data:image/") && !effectiveVideo.startsWith("blob:image/"));
   const handleMediaSize = (w, h) => {
     if (h > 0) {
       const r = w / h;

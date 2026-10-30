@@ -965,9 +965,9 @@
       },
       "\u6062\u590D\u9ED8\u8BA4\u52A8\u753B"
     )), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "var(--d-text-xs)", color: "var(--fg-4)" } }, "\u652F\u6301\u6240\u6709\u4E3B\u6D41 16:9 MP4 \u89C6\u9891\uFF0C\u501F\u52A9 IndexedDB \u5F15\u64CE\u672C\u5730\u76F4\u8BFB\uFF0C\u65E0\u5C3A\u5BF8\u914D\u989D\u9650\u5236\u3002"))))))), activeTab === "stage" && (() => {
-      const effectiveStatic = dbStaticImg || tweaks.stageStaticImg;
-      const effectiveVideo = dbActiveVideo || tweaks.stageActiveVideo;
-      const isVideo = effectiveVideo && (effectiveVideo.startsWith("data:video/") || effectiveVideo.includes("video/mp4") || effectiveVideo.includes("video/webm"));
+      const effectiveStatic = dbStaticImg || tweaks.stageStaticImg || "stage.jpg";
+      const effectiveVideo = dbActiveVideo || tweaks.stageActiveVideo || "stage.mp4";
+      const isVideo = effectiveVideo && (effectiveVideo.endsWith(".mp4") || effectiveVideo.endsWith(".webm") || effectiveVideo.startsWith("data:video/") || effectiveVideo.includes("video/mp4") || effectiveVideo.includes("video/webm"));
       return /* @__PURE__ */ React.createElement("div", { style: { padding: 20, overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 16 } }, /* @__PURE__ */ React.createElement("div", { className: "setting-card", style: { margin: 0 } }, /* @__PURE__ */ React.createElement("div", { className: "setting-card-title" }, /* @__PURE__ */ React.createElement(_MIcon, { name: "sparkle", size: 13, color: "var(--accent)" }), /* @__PURE__ */ React.createElement("span", null, "\u663E\u793A\u53F3\u4FA7\u4E13\u5C5E\u52A8\u753B\u821E\u53F0 (Animation Stage)"), /* @__PURE__ */ React.createElement("label", { style: { marginLeft: "auto", display: "inline-flex", alignItems: "center", cursor: "pointer", gap: 6 } }, /* @__PURE__ */ React.createElement(
         "input",
         {
