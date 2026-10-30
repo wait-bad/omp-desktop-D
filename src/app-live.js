@@ -84,11 +84,6 @@
     useThemeEffect(t);
     useCommandShortcut(setBridgeOpen, setBridgeView);
     React.useEffect(() => {
-      if (typeof window.__OMP_SPLASH_DISMISS__ === "function") {
-        window.__OMP_SPLASH_DISMISS__(false);
-      }
-    }, []);
-    React.useEffect(() => {
       if (!bridgeOpen || bridgeView !== "login") return;
       setLoginProviders(null);
       bridge?.getLoginProviders().then((data2) => setLoginProviders(data2?.providers ?? [])).catch(() => setLoginProviders([]));

@@ -79,13 +79,6 @@ function App() {
   useThemeEffect(t);
   useCommandShortcut(setBridgeOpen, setBridgeView);
 
-  // Notify splash screen that React root has mounted and ready
-  React.useEffect(() => {
-    if (typeof window.__OMP_SPLASH_DISMISS__ === "function") {
-      window.__OMP_SPLASH_DISMISS__(false);
-    }
-  }, []);
-
   // Fetch OAuth providers whenever the login view opens (ensures fresh auth status)
   React.useEffect(() => {
     if (!bridgeOpen || bridgeView !== "login") return;
@@ -94,7 +87,6 @@ function App() {
       .then(data => setLoginProviders(data?.providers ?? []))
       .catch(() => setLoginProviders([]));
   }, [bridgeOpen, bridgeView]);
-
   const openBridge = view => { setBridgeView(view); setBridgeOpen(true); };
 
   // ── Derived values ────────────────────────────────────────────────────────

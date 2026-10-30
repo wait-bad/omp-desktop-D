@@ -162,7 +162,9 @@
         }, 450);
       }
 
-      window.__OMP_SPLASH_DISMISS__ = dismissSplash;
+      window.__OMP_SPLASH_DISMISS__ = function (force) {
+        if (force === true) dismissSplash();
+      };
 
       // Smoothly show video once first frame is ready
       video.addEventListener("playing", function () {
