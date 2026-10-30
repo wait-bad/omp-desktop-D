@@ -18,7 +18,7 @@
     "monoChat": false,
     "scanlines": true,
     "showRadar": true,
-    "fontSize":  100,
+    "fontSize":  130,
     "autosave":  true,
     "userName":  "you",
     "userAvatar": "",

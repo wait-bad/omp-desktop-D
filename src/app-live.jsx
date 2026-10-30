@@ -341,8 +341,8 @@ function App() {
           />
           <TweakToggle label="mono chat font" value={t.monoChat}
             onChange={v => setTweak("monoChat", v)} />
-          <TweakSlider label="font size" value={t.fontSize ?? 100}
-            min={75} max={150} step={5} unit="%"
+          <TweakSlider label="font size" value={t.fontSize ?? 130}
+            min={75} max={200} step={5} unit="%"
             onChange={v => setTweak("fontSize", v)} />
           <TweakImageUpload label="Background Image" value={t.bgImage ?? ""}
             onChange={v => setTweak("bgImage", v)} />

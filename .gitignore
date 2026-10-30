@@ -57,8 +57,9 @@ docs/superpowers/
 /server_spec.txt
 /test-video.html
 /test.mp4
+/release.mp4
+/omp-windows-x64.exe
 /src-tauri/target/debug/omp-desktop-running.exe
-
 # ── Private / local work notes ────────────────────────────────────────────────
 /工作笔记*.md
 /*笔记*.md

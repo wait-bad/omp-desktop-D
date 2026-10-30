@@ -351,9 +351,9 @@
       TweakSlider,
       {
         label: "font size",
-        value: t.fontSize ?? 100,
+        value: t.fontSize ?? 130,
         min: 75,
-        max: 150,
+        max: 200,
         step: 5,
         unit: "%",
         onChange: (v) => setTweak("fontSize", v)
