@@ -85,6 +85,7 @@ pub(super) fn spawn_omp(cwd: Option<&str>, resume_path: Option<&str>) -> Result<
         let mut cmd = Command::new(name);
         cmd.args(["--mode", mode])
             .env("PI_NO_PTY", "1")
+            .env("OMP_SKIP_SETUP", "1")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());

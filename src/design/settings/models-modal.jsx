@@ -281,7 +281,17 @@
         await window.OMP_BRIDGE.saveModelsConfig(nextConfig);
         setConfig(nextConfig);
         setActiveProvider(editKey.trim());
-        alert("API & Models configuration saved! Models are updated directly for OMP.");
+        if (window.OMP_BRIDGE?.restartActiveSession) {
+          await window.OMP_BRIDGE.restartActiveSession();
+        }
+        if (editModels && editModels.length > 0) {
+          window.OMP_BRIDGE?.setModel?.({
+            id: editModels[0].id,
+            name: editModels[0].name || editModels[0].id,
+            provider: editKey.trim(),
+          });
+        }
+        alert("API 与模型配置已保存！后台会话已完成热更新与模型同步绑定。");
       } catch (e) {
         setError("Failed to save: " + e.message);
       } finally {
@@ -1290,9 +1300,40 @@
                     <div className="setting-card-desc">
                       软件冷启动时播放的全屏开屏动效。支持按任意键（空格、回车等）随时快进跳过；用腻了可在此随时上传自己的 MP4 视频或一键还原。
                     </div>
-
                     {tweaks.splashEnabled !== false && (
                       <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 12 }}>
+                        {/* 启动音效独立开关 */}
+                        <div style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "8px 12px",
+                          background: "var(--bg-elevated)",
+                          borderRadius: 6,
+                          border: "1px solid var(--line)"
+                        }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                            <div style={{ fontSize: 12.5, fontWeight: 500, color: "var(--fg)", display: "flex", alignItems: "center", gap: 6 }}>
+                              <_MIcon name="voice" size={13} color="var(--accent)" />
+                              <span>开屏启动音效 (Startup Sound)</span>
+                            </div>
+                            <span style={{ fontSize: "var(--d-text-xs)", color: "var(--fg-3)" }}>
+                              冷启动时播放视频内置的原生背景音乐与音效（支持随时按空格键跳过并平滑淡出）
+                            </span>
+                          </div>
+                          <label style={{ display: "inline-flex", alignItems: "center", cursor: "pointer", gap: 6 }}>
+                            <input
+                              type="checkbox"
+                              checked={tweaks.splashAudio !== false}
+                              onChange={(e) => setTweak("splashAudio", e.target.checked)}
+                              style={{ accentColor: "var(--accent)" }}
+                            />
+                            <span style={{ fontSize: 11, color: tweaks.splashAudio !== false ? "var(--accent)" : "var(--fg-4)" }}>
+                              {tweaks.splashAudio !== false ? "已开启" : "已静音"}
+                            </span>
+                          </label>
+                        </div>
+
                         <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
                           {/* 视频实时预览框 */}
                           <div style={{

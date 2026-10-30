@@ -1215,6 +1215,43 @@
       if (!sessionRegistry.has(id)) return;
       await _switchToSession(id);
     },
+    /** Restart the active session (respawns omp with fresh config and re-attaches listeners). */
+    async restartActiveSession() {
+      if (!window.__TAURI__ || !activeSessionId) return;
+      const entry = sessionRegistry.get(activeSessionId);
+      const cwd = entry?.path ?? "";
+      await window.__TAURI__.core.invoke("start_session", {
+        sessionId: activeSessionId,
+        cwd,
+      });
+      await _switchToSession(activeSessionId);
+      _initFetch();
+      notify();
+    },
+
+    /** Apply twin/default model and thinking level preferences to active session. */
+    applyTwinDefaults() {
+      try {
+        const raw = localStorage.getItem("omp-desktop:tweaks");
+        if (!raw) return;
+        const twk = JSON.parse(raw);
+        const modelId = twk.coticeDefaultModel || twk.defaultModel;
+        const thinking = twk.coticeDefaultThinking || twk.defaultThinking;
+        if (modelId) {
+          const found = state.models.find(m => m.id === modelId);
+          if (found) {
+            _send({ type: "set_model", provider: found.provider, modelId: found.id });
+          } else {
+            _send({ type: "set_model", modelId });
+          }
+        }
+        if (thinking && thinking !== "auto") {
+          _send({ type: "set_thinking_level", level: thinking });
+        }
+      } catch (err) {
+        console.warn("[live] applyTwinDefaults error:", err);
+      }
+    },
 
     /** Close a tab and kill its omp process. */
     async closeSession(id) {

@@ -251,7 +251,17 @@
         await window.OMP_BRIDGE.saveModelsConfig(nextConfig);
         setConfig(nextConfig);
         setActiveProvider(editKey.trim());
-        alert("API & Models configuration saved! Models are updated directly for OMP.");
+        if (window.OMP_BRIDGE?.restartActiveSession) {
+          await window.OMP_BRIDGE.restartActiveSession();
+        }
+        if (editModels && editModels.length > 0) {
+          window.OMP_BRIDGE?.setModel?.({
+            id: editModels[0].id,
+            name: editModels[0].name || editModels[0].id,
+            provider: editKey.trim()
+          });
+        }
+        alert("API \u4E0E\u6A21\u578B\u914D\u7F6E\u5DF2\u4FDD\u5B58\uFF01\u540E\u53F0\u4F1A\u8BDD\u5DF2\u5B8C\u6210\u70ED\u66F4\u65B0\u4E0E\u6A21\u578B\u540C\u6B65\u7ED1\u5B9A\u3002");
       } catch (e) {
         setError("Failed to save: " + e.message);
       } finally {
@@ -884,7 +894,23 @@
         onChange: (e) => setTweak("splashEnabled", e.target.checked),
         style: { accentColor: "var(--accent)" }
       }
-    ), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: tweaks.splashEnabled !== false ? "var(--accent)" : "var(--fg-4)" } }, tweaks.splashEnabled !== false ? "\u5DF2\u5F00\u542F" : "\u5DF2\u5173\u95ED"))), /* @__PURE__ */ React.createElement("div", { className: "setting-card-desc" }, "\u8F6F\u4EF6\u51B7\u542F\u52A8\u65F6\u64AD\u653E\u7684\u5168\u5C4F\u5F00\u5C4F\u52A8\u6548\u3002\u652F\u6301\u6309\u4EFB\u610F\u952E\uFF08\u7A7A\u683C\u3001\u56DE\u8F66\u7B49\uFF09\u968F\u65F6\u5FEB\u8FDB\u8DF3\u8FC7\uFF1B\u7528\u817B\u4E86\u53EF\u5728\u6B64\u968F\u65F6\u4E0A\u4F20\u81EA\u5DF1\u7684 MP4 \u89C6\u9891\u6216\u4E00\u952E\u8FD8\u539F\u3002"), tweaks.splashEnabled !== false && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: {
+    ), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: tweaks.splashEnabled !== false ? "var(--accent)" : "var(--fg-4)" } }, tweaks.splashEnabled !== false ? "\u5DF2\u5F00\u542F" : "\u5DF2\u5173\u95ED"))), /* @__PURE__ */ React.createElement("div", { className: "setting-card-desc" }, "\u8F6F\u4EF6\u51B7\u542F\u52A8\u65F6\u64AD\u653E\u7684\u5168\u5C4F\u5F00\u5C4F\u52A8\u6548\u3002\u652F\u6301\u6309\u4EFB\u610F\u952E\uFF08\u7A7A\u683C\u3001\u56DE\u8F66\u7B49\uFF09\u968F\u65F6\u5FEB\u8FDB\u8DF3\u8FC7\uFF1B\u7528\u817B\u4E86\u53EF\u5728\u6B64\u968F\u65F6\u4E0A\u4F20\u81EA\u5DF1\u7684 MP4 \u89C6\u9891\u6216\u4E00\u952E\u8FD8\u539F\u3002"), tweaks.splashEnabled !== false && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { style: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: "8px 12px",
+      background: "var(--bg-elevated)",
+      borderRadius: 6,
+      border: "1px solid var(--line)"
+    } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12.5, fontWeight: 500, color: "var(--fg)", display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement(_MIcon, { name: "voice", size: 13, color: "var(--accent)" }), /* @__PURE__ */ React.createElement("span", null, "\u5F00\u5C4F\u542F\u52A8\u97F3\u6548 (Startup Sound)")), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "var(--d-text-xs)", color: "var(--fg-3)" } }, "\u51B7\u542F\u52A8\u65F6\u64AD\u653E\u89C6\u9891\u5185\u7F6E\u7684\u539F\u751F\u80CC\u666F\u97F3\u4E50\u4E0E\u97F3\u6548\uFF08\u652F\u6301\u968F\u65F6\u6309\u7A7A\u683C\u952E\u8DF3\u8FC7\u5E76\u5E73\u6ED1\u6DE1\u51FA\uFF09")), /* @__PURE__ */ React.createElement("label", { style: { display: "inline-flex", alignItems: "center", cursor: "pointer", gap: 6 } }, /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        type: "checkbox",
+        checked: tweaks.splashAudio !== false,
+        onChange: (e) => setTweak("splashAudio", e.target.checked),
+        style: { accentColor: "var(--accent)" }
+      }
+    ), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: tweaks.splashAudio !== false ? "var(--accent)" : "var(--fg-4)" } }, tweaks.splashAudio !== false ? "\u5DF2\u5F00\u542F" : "\u5DF2\u9759\u97F3"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("div", { style: {
       width: 150,
       height: 84,
       borderRadius: 8,

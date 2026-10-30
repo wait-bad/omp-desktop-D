@@ -31,6 +31,7 @@
     "stageStaticImg": "",
     "stageRatioMode": "auto",
     "splashEnabled": true,
+    "splashAudio": true,
     "splashCustomVideo": false
   }/*EDITMODE-END*/;
 

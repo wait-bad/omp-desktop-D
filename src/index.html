@@ -34,11 +34,9 @@
       id="splash-video"
       src="splash.mp4"
       autoplay
-      muted
       playsinline
       preload="auto"
       style="
-        width: 100%;
         height: 100%;
         object-fit: cover;
         pointer-events: none;
@@ -84,10 +82,9 @@
     (function () {
       const splash = document.getElementById("splash-layer");
       const video = document.getElementById("splash-video");
-      const skipText = document.getElementById("splash-skip-text");
       if (!splash || !video) return;
 
-      // ── 1. Check user preferences: Splash enabled? Custom video? ───────
+      // ── 1. Check user preferences: Splash enabled? Audio enabled? Custom video? ───────
       let tweaks = {};
       try {
         tweaks = JSON.parse(localStorage.getItem("omp-desktop:tweaks") || "{}");
@@ -97,6 +94,21 @@
       if (tweaks.splashEnabled === false) {
         splash.remove();
         return;
+      }
+
+      // Audio preference: enabled by default unless explicitly disabled
+      const enableAudio = tweaks.splashAudio !== false;
+      video.muted = !enableAudio;
+
+      function tryPlay() {
+        const p = video.play();
+        if (p && typeof p.catch === "function") {
+          p.catch(function (err) {
+            console.warn("[splash] Autoplay with sound failed, fallback to muted:", err);
+            video.muted = true;
+            video.play().catch(function () {});
+          });
+        }
       }
 
       // If user uploaded a custom splash video into IndexedDB
@@ -110,7 +122,8 @@
               getReq.onsuccess = function () {
                 if (getReq.result && typeof getReq.result === "string") {
                   video.src = getReq.result;
-                  video.play().catch(function () {});
+                  video.muted = !enableAudio;
+                  tryPlay();
                 }
               };
             }
@@ -119,37 +132,24 @@
       }
 
       let isDismissed = false;
-      let isAppReady = false;
-      let isVideoFinished = false;
-
-      // Smoothly show video once first frame is ready
-      video.addEventListener("playing", function () {
-        video.style.opacity = "1";
-      });
-      video.addEventListener("canplay", function () {
-        video.play().catch(function () {});
-        video.style.opacity = "1";
-      });
-
-      // If video errors out, fallback dismiss quickly so user is never blocked
-      video.addEventListener("error", function () {
-        isVideoFinished = true;
-        if (isAppReady) dismissSplash();
-      });
-
-      // Called when React root mounts
-      window.__OMP_SPLASH_DISMISS__ = function (immediate) {
-        isAppReady = true;
-        // NEVER kill video during buffering/playing!
-        // Only dismiss if user requested immediate skip, or video finished naturally
-        if (immediate || isVideoFinished) {
-          dismissSplash();
-        }
-      };
 
       function dismissSplash() {
         if (isDismissed) return;
         isDismissed = true;
+
+        // Smoothly fade out audio volume
+        try {
+          let vol = video.volume;
+          const fadeTimer = setInterval(function () {
+            vol = Math.max(0, vol - 0.25);
+            video.volume = vol;
+            if (vol <= 0.05) {
+              video.volume = 0;
+              clearInterval(fadeTimer);
+            }
+          }, 35);
+        } catch (_) {}
+
         splash.style.opacity = "0";
         splash.style.transform = "scale(1.015)";
         splash.style.pointerEvents = "none";
@@ -159,42 +159,33 @@
             video.src = "";
             splash.remove();
           } catch (_) {}
-        }, 480);
+        }, 450);
       }
 
-      // When video ends naturally after playing full duration
-      video.addEventListener("ended", function () {
-        isVideoFinished = true;
-        if (isAppReady) {
-          dismissSplash();
-        } else {
-          if (skipText) skipText.textContent = "正在进入工作空间...";
-        }
+      window.__OMP_SPLASH_DISMISS__ = dismissSplash;
+
+      // Smoothly show video once first frame is ready
+      video.addEventListener("playing", function () {
+        video.style.opacity = "1";
+      });
+      video.addEventListener("canplay", function () {
+        tryPlay();
+        video.style.opacity = "1";
       });
 
-      // User skip via keypress or click
-      function onUserSkip(e) {
-        if (isDismissed) return;
-        isVideoFinished = true;
-        if (isAppReady) {
-          dismissSplash();
-        } else {
-          // Fast-forward video to last frame
-          if (video.duration) {
-            video.currentTime = Math.max(0, video.duration - 0.05);
-          }
-          if (skipText) skipText.textContent = "正在接入 Agent 核心...";
-        }
-      }
+      // ── Guaranteed Exit Points (Instant skip, natural end, never stuck) ──
+      // 1. Natural end: when video finishes playing (4s)
+      video.addEventListener("ended", dismissSplash);
 
-      window.addEventListener("keydown", onUserSkip, { once: false });
-      splash.addEventListener("click", onUserSkip);
+      // 2. User skip: press ANY key (Space, Enter, Esc, etc.) or click anywhere
+      window.addEventListener("keydown", dismissSplash, { once: true });
+      splash.addEventListener("click", dismissSplash, { once: true });
 
-      // Failsafe timer (6s max) so user is never stuck
-      setTimeout(function () {
-        isVideoFinished = true;
-        dismissSplash();
-      }, 6000);
+      // 3. Error fallback: if video fails to load, dismiss immediately
+      video.addEventListener("error", dismissSplash);
+
+      // 4. Absolute Failsafe: 4.6s max timeout (video duration ~4s)
+      setTimeout(dismissSplash, 4600);
     })();
   </script>
 

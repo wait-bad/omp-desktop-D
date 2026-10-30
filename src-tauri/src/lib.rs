@@ -146,6 +146,55 @@ fn get_models_config_path() -> Result<std::path::PathBuf, String> {
     path.push("models.yml");
     Ok(path)
 }
+/// Ensure ~/.omp/agent/config.yml and models.yml exist with setupVersion: 2 and a placeholder model.
+/// This defends fresh omp installations against exiting with "No models available"
+/// or hanging inside the terminal Setup Wizard.
+fn ensure_omp_onboarding_seeded() {
+    let home = std::env::var("USERPROFILE")
+        .or_else(|_| std::env::var("HOME"))
+        .ok();
+    let Some(home) = home else { return };
+    let agent_dir = std::path::PathBuf::from(home).join(".omp").join("agent");
+    let _ = std::fs::create_dir_all(&agent_dir);
+
+    // 1. config.yml - ensure setupVersion: 2 to skip TUI onboarding wizard
+    let config_path = agent_dir.join("config.yml");
+    if !config_path.exists() {
+        let default_config = "setupVersion: 2\nstartup:\n  setupWizard: false\ndefaultThinkingLevel: high\n";
+        let _ = std::fs::write(&config_path, default_config);
+    } else if let Ok(content) = std::fs::read_to_string(&config_path) {
+        if !content.contains("setupVersion") {
+            let patched = format!("setupVersion: 2\nstartup:\n  setupWizard: false\n{content}");
+            let _ = std::fs::write(&config_path, patched);
+        }
+    }
+
+    // 2. models.yml - ensure at least a placeholder model exists so omp doesn't exit(1) on boot
+    let models_path = agent_dir.join("models.yml");
+    let needs_placeholder = if !models_path.exists() {
+        true
+    } else if let Ok(content) = std::fs::read_to_string(&models_path) {
+        content.trim().is_empty() || content.trim() == "{}"
+    } else {
+        true
+    };
+
+    if needs_placeholder {
+        let placeholder_models = r#"providers:
+  default:
+    name: Placeholder
+    api: openai-completions
+    baseUrl: https://api.openai.com/v1
+    apiKey: placeholder-key
+    models:
+    - id: gpt-4o
+      name: GPT-4o (Placeholder)
+      contextWindow: 128000
+      reasoning: false
+"#;
+        let _ = std::fs::write(&models_path, placeholder_models);
+    }
+}
 
 /// Read ~/.omp/agent/models.yml and return as JSON string
 #[tauri::command]
@@ -433,6 +482,7 @@ pub fn run() {
             get_hardware_power_metrics,
         ])
         .setup(|app| {
+            ensure_omp_onboarding_seeded();
             // Devtools can still be opened manually or enabled if needed
             // The frontend activates this session on load via OMP_BRIDGE.activateSession("default").
             //

@@ -11,7 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **JSX 高性能预转译架构 (Zero-Runtime Babel / Precompiled JSX)** — 新增 `scripts/build-jsx.mjs`（基于 esbuild，耗时仅 100ms），在构建/启动前将全部 19 个 JSX 文件预先转译为原生 JS，并遵循 IIFE 铁律封装；彻底移除了 3MB 的 `babel.min.js`，将浏览器端 JSX 执行与初始化耗时从 ~3000ms 压缩至 ~20ms！
 - **即时视频开屏层与弹性跳过机制 (Instant Video Splash & Flexible Skip)** — 在 `index.html` 首层植入原生轻量全屏视频层，并在启动时秒出播放 `splash.mp4`，支持任意键快进跳过、自动检测后端 Ready 状态平滑 450ms 淡出切入。
 - **开屏动画自定义系统 (Splash Screen Settings & Custom Video)** — 在现代化设置中心的「外观 (Appearance)」面板中增加专属开屏管理控制台，支持开屏动画一键启用/禁用、上传并使用本地任意自定义 MP4 视频（依托 IndexedDB 本地大容量持久化）、设置面板内即时画中画微缩预览与一键恢复默认视频。
-
+- **开屏启动音效与平滑音量渐隐 (Splash Audio & Smooth Fade-out)** — 解除开屏视频硬编码静音限制，默认释放原生震撼音效；在设置中心增加「开屏启动音效」独立开关；针对任意键跳过与播放完毕切入场景挂载自适应音量阶梯平滑淡出算法，彻底杜绝声音截断异响。
 - **彻底消除 Rust 主线程 setup 阻塞 (Eliminate Main-Thread Startup Freeze)** — 移除 `spawn.rs` 中在 setup 阶段同步运行 `omp --help` 的 `probe_rpc_ui` 阻塞调用（直接释放 ~2.4 秒的冷启动死等）。
 - **前端模型状态持久化与乐观就绪 (Optimistic Model Readiness)** — 修复进入新会话或切换 Tab 时模型列表与当前模型被无脑置空导致的假死盲等现象；本地持久化模型注册表缓存，启动与新建工程时瞬间进入工作态，避免模型无法切换的十多秒空窗期。
 - **失效 MCP 网络路径排查与禁用** — 禁用 `mcp.json` 中不存在的网络盘路径，避免启动时子进程底层 I/O 超时阻塞。
