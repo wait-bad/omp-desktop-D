@@ -175,8 +175,8 @@
         video.style.opacity = "1";
       });
 
-      // ── Guaranteed Exit Points (Instant skip, natural end, never stuck) ──
-      // 1. Natural end: when video finishes playing (4s)
+      // ── Exit Points (Driven 100% by video's natural duration & user input) ──
+      // 1. Natural end: when video finishes playing, regardless of length (2s, 5s, 10s...)
       video.addEventListener("ended", dismissSplash);
 
       // 2. User skip: press ANY key (Space, Enter, Esc, etc.) or click anywhere
@@ -186,8 +186,19 @@
       // 3. Error fallback: if video fails to load, dismiss immediately
       video.addEventListener("error", dismissSplash);
 
-      // 4. Absolute Failsafe: 4.6s max timeout (video duration ~4s)
-      setTimeout(dismissSplash, 4600);
+      // 4. Dynamic failsafe based on video's actual duration (+2.5s margin)
+      let failsafeTimer = null;
+      function armDynamicFailsafe() {
+        if (failsafeTimer) clearTimeout(failsafeTimer);
+        const dur = video.duration;
+        const timeoutMs = (dur && !isNaN(dur) && dur > 0)
+          ? Math.max(3000, (dur + 2.5) * 1000)
+          : 15000;
+        failsafeTimer = setTimeout(dismissSplash, timeoutMs);
+      }
+      video.addEventListener("loadedmetadata", armDynamicFailsafe);
+      video.addEventListener("durationchange", armDynamicFailsafe);
+      failsafeTimer = setTimeout(dismissSplash, 15000);
     })();
   </script>
 
