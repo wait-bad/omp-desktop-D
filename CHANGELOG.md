@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-11-05
 ### Added
 
 - **定时任务与自动巡航调度引擎 (Autonomous Task Scheduler Engine)** — 在现代化设置中心新增专属「定时任务与巡航」控制台（`scheduler-engine.js`），支持设定任务持续时间、执行间隔与巡航次数；支持文件拖拽与多选解析注入，自动将文件内容无缝拼接并继承当前活跃会话上下文向 Agent 周期性触发任务，同时配备完整的调度日志看板、运行指标与实时状态控制。
