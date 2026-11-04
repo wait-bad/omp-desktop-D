@@ -54,6 +54,8 @@ docs/superpowers/
 /cotice_hub_server.py
 /dispatch_prompt.txt
 /make_lnk.py
+/make_shortcut.vbs
+/run_*.py
 /server_spec.txt
 /test-video.html
 /test.mp4

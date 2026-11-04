@@ -59,6 +59,253 @@
     { value: "azure-openai", label: "Azure OpenAI" },
     { value: "ollama", label: "Ollama Local" }
   ];
+  function SchedulerTabPane() {
+    const [sched, setSched] = React.useState(() => window.OMP_SCHEDULER?.getState?.() || {});
+    const [previewFileId, setPreviewFileId] = React.useState(null);
+    const [isDragging, setIsDragging] = React.useState(false);
+    const fileInputRef = React.useRef(null);
+    React.useEffect(() => {
+      if (!window.OMP_SCHEDULER) return;
+      const unsub = window.OMP_SCHEDULER.subscribe(setSched);
+      return unsub;
+    }, []);
+    const files = sched.selectedFiles || [];
+    const logs = sched.logs || [];
+    const isRunning = !!sched.isRunning;
+    const isPaused = !!sched.isPaused;
+    const handleFileChange = (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        window.OMP_SCHEDULER?.addFilesFromInput(e.target.files);
+        e.target.value = "";
+      }
+    };
+    const handleDrop = (e) => {
+      e.preventDefault();
+      setIsDragging(false);
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        window.OMP_SCHEDULER?.addFilesFromInput(e.dataTransfer.files);
+      }
+    };
+    const totalChars = files.reduce((acc, f) => acc + (f.content?.length || 0), 0);
+    return /* @__PURE__ */ React.createElement("div", { style: { padding: "18px 20px", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 16 } }, /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        ref: fileInputRef,
+        type: "file",
+        multiple: true,
+        style: { display: "none" },
+        onChange: handleFileChange
+      }
+    ), /* @__PURE__ */ React.createElement("div", { style: {
+      background: "color-mix(in oklab, var(--bg-window) 80%, black)",
+      borderRadius: 8,
+      border: `1px solid ${isRunning ? "color-mix(in oklab, var(--green) 40%, var(--line))" : "var(--line)"}`,
+      padding: 16,
+      display: "flex",
+      flexDirection: "column",
+      gap: 12
+    } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: {
+      display: "inline-block",
+      width: 8,
+      height: 8,
+      borderRadius: "50%",
+      background: isRunning ? isPaused ? "var(--amber)" : "var(--green)" : "var(--fg-4)",
+      boxShadow: isRunning ? `0 0 8px ${isPaused ? "var(--amber)" : "var(--green)"}` : "none"
+    } }), /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, fontSize: 13, color: isRunning ? "var(--fg)" : "var(--fg-3)" } }, isRunning ? isPaused ? "\u81EA\u52A8\u5316\u5DE1\u822A\u5DF2\u6682\u505C" : "\u81EA\u52A8\u5316\u5DE1\u822A\u8FD0\u884C\u4E2D" : "\u81EA\u52A8\u5316\u5DE1\u822A\u5F85\u547D (\u672A\u542F\u52A8)"), /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--fg-4)", marginLeft: 6 } }, isRunning && `\u5DF2\u89E6\u53D1 ${sched.currentRunCount} / ${sched.maxRuns > 0 ? sched.maxRuns + " \u6B21" : "\u4E0D\u9650\u6B21"}`)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, !isRunning ? /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn primary mini",
+        style: { gap: 6, padding: "4px 14px", fontWeight: 600 },
+        onClick: () => window.OMP_SCHEDULER?.start(),
+        disabled: files.length === 0
+      },
+      /* @__PURE__ */ React.createElement(_MIcon, { name: "play", size: 12, color: "#fff" }),
+      /* @__PURE__ */ React.createElement("span", null, "\u542F\u52A8\u5B9A\u65F6\u5DE1\u822A")
+    ) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn mini",
+        style: { gap: 4 },
+        onClick: () => window.OMP_SCHEDULER?.togglePause()
+      },
+      /* @__PURE__ */ React.createElement(_MIcon, { name: isPaused ? "play" : "pause", size: 12 }),
+      /* @__PURE__ */ React.createElement("span", null, isPaused ? "\u7EE7\u7EED" : "\u6682\u505C")
+    ), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn mini ghost",
+        style: { gap: 4, color: "var(--red)" },
+        onClick: () => window.OMP_SCHEDULER?.stop("\u7528\u6237\u624B\u52A8\u7EC8\u6B62")
+      },
+      /* @__PURE__ */ React.createElement(_MIcon, { name: "stop", size: 12 }),
+      /* @__PURE__ */ React.createElement("span", null, "\u505C\u6B62")
+    )), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "btn mini ghost",
+        style: { gap: 4 },
+        title: "\u7ACB\u5373\u62FC\u63A5\u5F53\u524D\u9009\u4E2D\u7684\u6587\u4EF6\u5E76\u5411\u5F53\u524D\u4F1A\u8BDD\u6CE8\u5165\u4E00\u6B21",
+        disabled: files.length === 0,
+        onClick: () => window.OMP_SCHEDULER?.triggerNow()
+      },
+      /* @__PURE__ */ React.createElement(_MIcon, { name: "bolt", size: 12, color: "var(--accent)" }),
+      /* @__PURE__ */ React.createElement("span", null, "\u7ACB\u5373\u6D4B\u8BD5\u89E6\u53D1")
+    ))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { background: "var(--bg-card)", padding: "10px 12px", borderRadius: 6, border: "1px solid var(--line)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--fg-4)", marginBottom: 4 } }, "\u4E0B\u6B21\u89E6\u53D1\u5012\u8BA1\u65F6"), /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 18, fontWeight: 700, color: isRunning && !isPaused ? "var(--accent)" : "var(--fg-3)" } }, isRunning && !isPaused ? window.OMP_SCHEDULER?.formatDuration(sched.remainingMs) : "--:--")), /* @__PURE__ */ React.createElement("div", { style: { background: "var(--bg-card)", padding: "10px 12px", borderRadius: 6, border: "1px solid var(--line)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--fg-4)", marginBottom: 4 } }, "\u603B\u65F6\u95F4\u5757\u5269\u4F59"), /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 18, fontWeight: 700, color: isRunning ? "var(--cyan)" : "var(--fg-3)" } }, isRunning ? sched.durationMinutes > 0 ? window.OMP_SCHEDULER?.formatDuration(sched.remainingDurationMs) : "\u4E0D\u9650\u65F6" : sched.durationMinutes > 0 ? `${sched.durationMinutes} \u5206\u949F` : "\u4E0D\u9650\u65F6")), /* @__PURE__ */ React.createElement("div", { style: { background: "var(--bg-card)", padding: "10px 12px", borderRadius: 6, border: "1px solid var(--line)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--fg-4)", marginBottom: 4 } }, "\u89E6\u53D1\u8F6E\u6B21\u4E0A\u9650"), /* @__PURE__ */ React.createElement("div", { className: "mono", style: { fontSize: 18, fontWeight: 700, color: "var(--fg)" } }, sched.currentRunCount, " / ", sched.maxRuns > 0 ? `${sched.maxRuns} \u6B21` : "\u221E")))), /* @__PURE__ */ React.createElement("div", { className: "setting-card", style: { margin: 0, padding: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, fontSize: 13, marginBottom: 12, display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement(_MIcon, { name: "clock", size: 14, color: "var(--accent)" }), /* @__PURE__ */ React.createElement("span", null, "\u5DE1\u822A\u5468\u671F\u4E0E\u6B21\u6570\u8BBE\u5B9A")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: { fontSize: 11, color: "var(--fg-3)", display: "block", marginBottom: 6 } }, "\u603B\u6301\u7EED\u65F6\u95F4 (\u5206\u949F\uFF0C0\u4E3A\u4E0D\u9650\u65F6)"), /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        type: "number",
+        min: "0",
+        className: "twk-field mono",
+        style: { width: "100%", padding: "5px 8px" },
+        value: sched.durationMinutes ?? 60,
+        onChange: (e) => window.OMP_SCHEDULER?.updateConfig({ durationMinutes: parseInt(e.target.value, 10) || 0 }),
+        disabled: isRunning
+      }
+    ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" } }, [15, 30, 60, 120, 0].map((m) => /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: m,
+        type: "button",
+        className: "btn mini ghost",
+        style: { fontSize: 10, padding: "2px 6px" },
+        disabled: isRunning,
+        onClick: () => window.OMP_SCHEDULER?.updateConfig({ durationMinutes: m })
+      },
+      m === 0 ? "\u4E0D\u9650\u65F6" : `${m}\u5206`
+    )))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: { fontSize: 11, color: "var(--fg-3)", display: "block", marginBottom: 6 } }, "\u89E6\u53D1\u95F4\u9694 (\u5206\u949F)"), /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        type: "number",
+        min: "1",
+        className: "twk-field mono",
+        style: { width: "100%", padding: "5px 8px" },
+        value: sched.intervalMinutes ?? 5,
+        onChange: (e) => window.OMP_SCHEDULER?.updateConfig({ intervalMinutes: Math.max(1, parseInt(e.target.value, 10) || 1) }),
+        disabled: isRunning
+      }
+    ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" } }, [1, 3, 5, 10, 15, 30].map((m) => /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: m,
+        type: "button",
+        className: "btn mini ghost",
+        style: { fontSize: 10, padding: "2px 6px" },
+        disabled: isRunning,
+        onClick: () => window.OMP_SCHEDULER?.updateConfig({ intervalMinutes: m })
+      },
+      m,
+      "\u5206"
+    )))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: { fontSize: 11, color: "var(--fg-3)", display: "block", marginBottom: 6 } }, "\u89E6\u53D1\u6B21\u6570 (\u6B21\uFF0C0\u4E3A\u4E0D\u9650\u5236)"), /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        type: "number",
+        min: "0",
+        className: "twk-field mono",
+        style: { width: "100%", padding: "5px 8px" },
+        value: sched.maxRuns ?? 10,
+        onChange: (e) => window.OMP_SCHEDULER?.updateConfig({ maxRuns: Math.max(0, parseInt(e.target.value, 10) || 0) }),
+        disabled: isRunning
+      }
+    ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" } }, [1, 3, 5, 10, 0].map((r) => /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: r,
+        type: "button",
+        className: "btn mini ghost",
+        style: { fontSize: 10, padding: "2px 6px" },
+        disabled: isRunning,
+        onClick: () => window.OMP_SCHEDULER?.updateConfig({ maxRuns: r })
+      },
+      r === 0 ? "\u4E0D\u9650\u6B21" : `${r}\u6B21`
+    )))))), /* @__PURE__ */ React.createElement("div", { className: "setting-card", style: { margin: 0, padding: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement(_MIcon, { name: "file", size: 14, color: "var(--accent)" }), /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, fontSize: 13 } }, "\u89E6\u53D1\u5185\u5BB9\u6587\u4EF6\u5217\u8868\uFF08\u6309\u987A\u5E8F\u62FC\u63A5\uFF09"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--fg-4)" } }, "(", files.length, " \u4E2A\u6587\u4EF6 \xB7 \u7EA6 ", totalChars, " \u5B57\u7B26 \xB7 \u65E0\u9ED8\u8BA4\u9884\u8BBE\u5185\u5BB9)")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        className: "btn primary mini",
+        style: { gap: 4 },
+        onClick: () => fileInputRef.current?.click()
+      },
+      /* @__PURE__ */ React.createElement(_MIcon, { name: "plus", size: 12 }),
+      /* @__PURE__ */ React.createElement("span", null, "\u9009\u62E9\u5E76\u8FFD\u52A0\u6587\u4EF6...")
+    ), files.length > 0 && /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        className: "btn mini ghost",
+        style: { gap: 4, color: "var(--fg-4)" },
+        onClick: () => window.OMP_SCHEDULER?.clearFiles()
+      },
+      /* @__PURE__ */ React.createElement(_MIcon, { name: "trash", size: 12 }),
+      /* @__PURE__ */ React.createElement("span", null, "\u6E05\u7A7A\u5168\u90E8")
+    ))), /* @__PURE__ */ React.createElement(
+      "div",
+      {
+        onDrop: handleDrop,
+        onDragOver: (e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        },
+        onDragLeave: () => setIsDragging(false),
+        style: {
+          border: `1.5px dashed ${isDragging ? "var(--accent)" : "var(--line)"}`,
+          borderRadius: 8,
+          padding: files.length === 0 ? "32px 16px" : "12px",
+          background: isDragging ? "color-mix(in oklab, var(--accent) 8%, var(--bg-card))" : "var(--bg-card)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          minHeight: 120,
+          transition: "border-color 0.2s, background 0.2s"
+        }
+      },
+      files.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, color: "var(--fg-4)" } }, /* @__PURE__ */ React.createElement(_MIcon, { name: "folder", size: 28, color: "var(--line-hi)" }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 500 } }, "\u6682\u672A\u9009\u62E9\u6587\u4EF6"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, textAlign: "center", maxWidth: 360, lineHeight: 1.5 } }, "\u70B9\u51FB\u53F3\u4E0A\u89D2\u300C\u9009\u62E9\u5E76\u8FFD\u52A0\u6587\u4EF6\u300D\u6216\u76F4\u63A5\u5C06\u4EE3\u7801\u3001\u8BF4\u660E\u6587\u6863\u62D6\u62FD\u81F3\u6B64\u6846\u4E2D\u3002", /* @__PURE__ */ React.createElement("br", null), "\u89E6\u53D1\u65F6\u5C06\u76F4\u63A5\u6309\u5148\u540E\u987A\u5E8F\u7EAF\u51C0\u62FC\u63A5\u8FD9\u51E0\u4E2A\u6587\u4EF6\u7684\u6587\u672C\uFF0C\u5B89\u5168\u6CE8\u5165\u5F53\u524D\u6D3B\u8DC3\u4F1A\u8BDD\u3002")) : files.map((file, idx) => /* @__PURE__ */ React.createElement(
+        "div",
+        {
+          key: file.id || idx,
+          style: {
+            background: "var(--bg-window)",
+            border: "1px solid var(--line)",
+            borderRadius: 6,
+            padding: "8px 12px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 6
+          }
+        },
+        /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 11, color: "var(--accent)", fontWeight: 700 } }, "#", idx + 1), /* @__PURE__ */ React.createElement(_MIcon, { name: "file", size: 14, color: "var(--fg-2)" }), /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, fontSize: 12, color: "var(--fg)" } }, file.name), /* @__PURE__ */ React.createElement("span", { className: "mono", style: { fontSize: 10, color: "var(--fg-4)" } }, window.OMP_SCHEDULER?.formatBytes(file.size), " \xB7 ", file.lineCount, " \u884C")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, alignItems: "center" } }, /* @__PURE__ */ React.createElement(
+          "button",
+          {
+            type: "button",
+            className: "btn mini ghost",
+            style: { fontSize: 11, padding: "2px 8px" },
+            onClick: () => setPreviewFileId(previewFileId === file.id ? null : file.id)
+          },
+          previewFileId === file.id ? "\u6536\u8D77\u9884\u89C8" : "\u9884\u89C8\u5185\u5BB9"
+        ), /* @__PURE__ */ React.createElement(
+          "button",
+          {
+            type: "button",
+            className: "btn mini ghost",
+            style: { color: "var(--red)", padding: "2px 6px" },
+            title: "\u79FB\u9664\u6B64\u6587\u4EF6",
+            onClick: () => window.OMP_SCHEDULER?.removeFile(file.id)
+          },
+          /* @__PURE__ */ React.createElement(_MIcon, { name: "close", size: 11 })
+        ))),
+        previewFileId === file.id && /* @__PURE__ */ React.createElement("div", { style: {
+          marginTop: 4,
+          background: "color-mix(in oklab, var(--bg) 90%, black)",
+          border: "1px solid var(--line)",
+          borderRadius: 4,
+          padding: 10,
+          maxHeight: 180,
+          overflowY: "auto"
+        } }, /* @__PURE__ */ React.createElement("pre", { className: "mono", style: { margin: 0, fontSize: 11, color: "var(--fg-2)", whiteSpace: "pre-wrap", wordBreak: "break-all" } }, file.content || "(\u6587\u4EF6\u5185\u5BB9\u4E3A\u7A7A)"))
+      ))
+    )), logs.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "setting-card", style: { margin: 0, padding: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 600, color: "var(--fg-4)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement(_MIcon, { name: "sparkle", size: 12, color: "var(--accent)" }), /* @__PURE__ */ React.createElement("span", null, "\u81EA\u52A8\u5316\u89E6\u53D1\u6267\u884C\u8BB0\u5F55")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4, maxHeight: 120, overflowY: "auto" } }, logs.slice(0, 10).map((log) => /* @__PURE__ */ React.createElement("div", { key: log.id, style: { display: "flex", alignItems: "center", gap: 8, fontSize: 11 } }, /* @__PURE__ */ React.createElement("span", { className: "mono", style: { color: "var(--fg-4)", minWidth: 55 } }, log.time), /* @__PURE__ */ React.createElement("span", { style: {
+      color: log.status === "success" ? "var(--green)" : log.status === "error" ? "var(--red)" : "var(--fg-3)"
+    } }, log.message))))));
+  }
   function SettingsModal({ isOpen, onClose, tweaks, setTweak }) {
     const [activeTab, setActiveTab] = React.useState("twins");
     const [toolsSubTab, setToolsSubTab] = React.useState("mcp");
@@ -366,7 +613,8 @@
       prompt: { title: "\u63D0\u793A\u8BCD\u8BBE\u7F6E", desc: "\u7BA1\u7406\u9759\u9ED8\u53D1\u9001\u7684\u524D\u7F00\u63D0\u793A\u8BCD\u4E0E\u8DE8\u5DE5\u7A0B\u901A\u7528\u7684\u5168\u5C40\u63D0\u793A\u8BCD" },
       appearance: { title: "\u754C\u9762\u80CC\u666F\u58C1\u7EB8\u4E0E\u5916\u89C2", desc: "\u81EA\u5B9A\u4E49\u684C\u9762\u80CC\u666F\u56FE\u7247\u3001\u900F\u660E\u5EA6\u4E0E\u89C6\u89C9\u5C42\u6B21" },
       tools: { title: "MCP \u6269\u5C55\u4E0E Skills \u6280\u80FD", desc: "\u7BA1\u7406\u5916\u90E8\u4E0A\u4E0B\u6587\u5DE5\u5177\u670D\u52A1\uFF0C\u907F\u514D\u591A\u4F59\u6CE8\u5165\u6253\u7A7F\u4E0A\u4E0B\u6587\u4E0E TPM \u914D\u989D" },
-      stage: { title: "\u821E\u53F0\u52A8\u753B\u4E0E\u52A8\u56FE (Animation Stage)", desc: "\u4E3A\u53F3\u4FA7\u6B63\u65B9\u5F62\u4E13\u5C5E\u821E\u53F0\u914D\u7F6E\u9759\u6001\u63D2\u753B\u4E0E\u5DE5\u4F5C\u4E2D\u5B9E\u65F6\u64AD\u653E\u7684\u52A8\u6001\u89C6\u9891/\u52A8\u56FE" }
+      stage: { title: "\u821E\u53F0\u52A8\u753B\u4E0E\u52A8\u56FE (Animation Stage)", desc: "\u4E3A\u53F3\u4FA7\u6B63\u65B9\u5F62\u4E13\u5C5E\u821E\u53F0\u914D\u7F6E\u9759\u6001\u63D2\u753B\u4E0E\u5DE5\u4F5C\u4E2D\u5B9E\u65F6\u64AD\u653E\u7684\u52A8\u6001\u89C6\u9891/\u52A8\u56FE" },
+      scheduler: { title: "\u5B9A\u65F6\u4EFB\u52A1\u4E0E\u81EA\u52A8\u5DE1\u822A (Autonomous Scheduler)", desc: "\u8BBE\u5B9A\u6301\u7EED\u65F6\u95F4\u3001\u95F4\u9694\u4E0E\u6B21\u6570\uFF0C\u5C06\u6240\u9009\u6587\u4EF6\u7684\u5185\u5BB9\u65E0\u7F1D\u62FC\u63A5\u5E76\u7EE7\u627F\u6D3B\u8DC3\u4F1A\u8BDD\u4E0A\u4E0B\u6587\u81EA\u52A8\u89E6\u53D1" }
     };
     const currentTabInfo = tabHeaders[activeTab] || tabHeaders.twins;
     const handleSyncTwinDefaults = () => {
@@ -422,6 +670,15 @@
       },
       /* @__PURE__ */ React.createElement(_MIcon, { name: "folder", size: 14 }),
       /* @__PURE__ */ React.createElement("span", null, "MCP \u4E0E Skills")
+    ), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: `models-nav-item ${activeTab === "scheduler" ? "active" : ""}`,
+        onClick: () => setActiveTab("scheduler")
+      },
+      /* @__PURE__ */ React.createElement(_MIcon, { name: "clock", size: 14, color: "var(--accent)" }),
+      /* @__PURE__ */ React.createElement("span", null, "\u5B9A\u65F6\u4EFB\u52A1\u4E0E\u5DE1\u822A"),
+      window.OMP_SCHEDULER?.getState?.().isRunning && /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", width: 6, height: 6, borderRadius: "50%", background: "var(--green)", boxShadow: "0 0 6px var(--green)" } })
     ), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }), /* @__PURE__ */ React.createElement(
       "button",
       {
@@ -1032,7 +1289,7 @@
         /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600 } }, opt.label),
         /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, opacity: 0.7 } }, opt.desc)
       )))));
-    })(), /* @__PURE__ */ React.createElement("div", { className: "models-modal-footer" }, /* @__PURE__ */ React.createElement("button", { className: "btn ghost", onClick: onClose }, "\u5173\u95ED"), activeTab === "api" && /* @__PURE__ */ React.createElement("button", { className: "btn primary", onClick: handleSaveApi, disabled: saving }, saving ? "\u4FDD\u5B58\u4E2D..." : "\u4FDD\u5B58\u5E76\u5E94\u7528\u5230 OMP")))));
+    })(), activeTab === "scheduler" && /* @__PURE__ */ React.createElement(SchedulerTabPane, null), /* @__PURE__ */ React.createElement("div", { className: "models-modal-footer" }, /* @__PURE__ */ React.createElement("button", { className: "btn ghost", onClick: onClose }, "\u5173\u95ED"), activeTab === "api" && /* @__PURE__ */ React.createElement("button", { className: "btn primary", onClick: handleSaveApi, disabled: saving }, saving ? "\u4FDD\u5B58\u4E2D..." : "\u4FDD\u5B58\u5E76\u5E94\u7528\u5230 OMP")))));
   }
   window.SettingsModal = SettingsModal;
   window.ModelsModal = SettingsModal;

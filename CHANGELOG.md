@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **定时任务与自动巡航调度引擎 (Autonomous Task Scheduler Engine)** — 在现代化设置中心新增专属「定时任务与巡航」控制台（`scheduler-engine.js`），支持设定任务持续时间、执行间隔与巡航次数；支持文件拖拽与多选解析注入，自动将文件内容无缝拼接并继承当前活跃会话上下文向 Agent 周期性触发任务，同时配备完整的调度日志看板、运行指标与实时状态控制。
 - **JSX 高性能预转译架构 (Zero-Runtime Babel / Precompiled JSX)** — 新增 `scripts/build-jsx.mjs`（基于 esbuild，耗时仅 100ms），在构建/启动前将全部 19 个 JSX 文件预先转译为原生 JS，并遵循 IIFE 铁律封装；彻底移除了 3MB 的 `babel.min.js`，将浏览器端 JSX 执行与初始化耗时从 ~3000ms 压缩至 ~20ms！
 - **即时视频开屏层与弹性跳过机制 (Instant Video Splash & Flexible Skip)** — 在 `index.html` 首层植入原生轻量全屏视频层，并在启动时秒出播放 `splash.mp4`，支持任意键快进跳过、自动检测后端 Ready 状态平滑 450ms 淡出切入。
 - **开屏动画自定义系统 (Splash Screen Settings & Custom Video)** — 在现代化设置中心的「外观 (Appearance)」面板中增加专属开屏管理控制台，支持开屏动画一键启用/禁用、上传并使用本地任意自定义 MP4 视频（依托 IndexedDB 本地大容量持久化）、设置面板内即时画中画微缩预览与一键恢复默认视频。

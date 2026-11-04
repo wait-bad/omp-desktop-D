@@ -63,6 +63,403 @@
     { value: "ollama", label: "Ollama Local" }
   ];
 
+  function SchedulerTabPane() {
+    const [sched, setSched] = React.useState(() => window.OMP_SCHEDULER?.getState?.() || {});
+    const [previewFileId, setPreviewFileId] = React.useState(null);
+    const [isDragging, setIsDragging] = React.useState(false);
+    const fileInputRef = React.useRef(null);
+
+    React.useEffect(() => {
+      if (!window.OMP_SCHEDULER) return;
+      const unsub = window.OMP_SCHEDULER.subscribe(setSched);
+      return unsub;
+    }, []);
+
+    const files = sched.selectedFiles || [];
+    const logs = sched.logs || [];
+    const isRunning = !!sched.isRunning;
+    const isPaused = !!sched.isPaused;
+
+    const handleFileChange = (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        window.OMP_SCHEDULER?.addFilesFromInput(e.target.files);
+        e.target.value = "";
+      }
+    };
+
+    const handleDrop = (e) => {
+      e.preventDefault();
+      setIsDragging(false);
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        window.OMP_SCHEDULER?.addFilesFromInput(e.dataTransfer.files);
+      }
+    };
+
+    const totalChars = files.reduce((acc, f) => acc + (f.content?.length || 0), 0);
+
+    return (
+      <div style={{ padding: "18px 20px", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          style={{ display: "none" }}
+          onChange={handleFileChange}
+        />
+
+        {/* 1. 顶部状态指标看板 (Hero Panel) */}
+        <div style={{
+          background: "color-mix(in oklab, var(--bg-window) 80%, black)",
+          borderRadius: 8,
+          border: `1px solid ${isRunning ? "color-mix(in oklab, var(--green) 40%, var(--line))" : "var(--line)"}`,
+          padding: 16,
+          display: "flex",
+          flexDirection: "column",
+          gap: 12
+        }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{
+                display: "inline-block",
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: isRunning ? (isPaused ? "var(--amber)" : "var(--green)") : "var(--fg-4)",
+                boxShadow: isRunning ? `0 0 8px ${isPaused ? "var(--amber)" : "var(--green)"}` : "none"
+              }} />
+              <span style={{ fontWeight: 600, fontSize: 13, color: isRunning ? "var(--fg)" : "var(--fg-3)" }}>
+                {isRunning ? (isPaused ? "自动化巡航已暂停" : "自动化巡航运行中") : "自动化巡航待命 (未启动)"}
+              </span>
+              <span className="mono" style={{ fontSize: 11, color: "var(--fg-4)", marginLeft: 6 }}>
+                {isRunning && `已触发 ${sched.currentRunCount} / ${sched.maxRuns > 0 ? sched.maxRuns + " 次" : "不限次"}`}
+              </span>
+            </div>
+
+            {/* 操作控制组 */}
+            <div style={{ display: "flex", gap: 8 }}>
+              {!isRunning ? (
+                <button
+                  className="btn primary mini"
+                  style={{ gap: 6, padding: "4px 14px", fontWeight: 600 }}
+                  onClick={() => window.OMP_SCHEDULER?.start()}
+                  disabled={files.length === 0}
+                >
+                  <_MIcon name="play" size={12} color="#fff" />
+                  <span>启动定时巡航</span>
+                </button>
+              ) : (
+                <>
+                  <button
+                    className="btn mini"
+                    style={{ gap: 4 }}
+                    onClick={() => window.OMP_SCHEDULER?.togglePause()}
+                  >
+                    <_MIcon name={isPaused ? "play" : "pause"} size={12} />
+                    <span>{isPaused ? "继续" : "暂停"}</span>
+                  </button>
+                  <button
+                    className="btn mini ghost"
+                    style={{ gap: 4, color: "var(--red)" }}
+                    onClick={() => window.OMP_SCHEDULER?.stop("用户手动终止")}
+                  >
+                    <_MIcon name="stop" size={12} />
+                    <span>停止</span>
+                  </button>
+                </>
+              )}
+
+              <button
+                className="btn mini ghost"
+                style={{ gap: 4 }}
+                title="立即拼接当前选中的文件并向当前会话注入一次"
+                disabled={files.length === 0}
+                onClick={() => window.OMP_SCHEDULER?.triggerNow()}
+              >
+                <_MIcon name="bolt" size={12} color="var(--accent)" />
+                <span>立即测试触发</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 倒计时 3 格看板 */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+            <div style={{ background: "var(--bg-card)", padding: "10px 12px", borderRadius: 6, border: "1px solid var(--line)" }}>
+              <div style={{ fontSize: 11, color: "var(--fg-4)", marginBottom: 4 }}>下次触发倒计时</div>
+              <div className="mono" style={{ fontSize: 18, fontWeight: 700, color: isRunning && !isPaused ? "var(--accent)" : "var(--fg-3)" }}>
+                {isRunning && !isPaused ? window.OMP_SCHEDULER?.formatDuration(sched.remainingMs) : "--:--"}
+              </div>
+            </div>
+
+            <div style={{ background: "var(--bg-card)", padding: "10px 12px", borderRadius: 6, border: "1px solid var(--line)" }}>
+              <div style={{ fontSize: 11, color: "var(--fg-4)", marginBottom: 4 }}>总时间块剩余</div>
+              <div className="mono" style={{ fontSize: 18, fontWeight: 700, color: isRunning ? "var(--cyan)" : "var(--fg-3)" }}>
+                {isRunning
+                  ? (sched.durationMinutes > 0 ? window.OMP_SCHEDULER?.formatDuration(sched.remainingDurationMs) : "不限时")
+                  : (sched.durationMinutes > 0 ? `${sched.durationMinutes} 分钟` : "不限时")}
+              </div>
+            </div>
+
+            <div style={{ background: "var(--bg-card)", padding: "10px 12px", borderRadius: 6, border: "1px solid var(--line)" }}>
+              <div style={{ fontSize: 11, color: "var(--fg-4)", marginBottom: 4 }}>触发轮次上限</div>
+              <div className="mono" style={{ fontSize: 18, fontWeight: 700, color: "var(--fg)" }}>
+                {sched.currentRunCount} / {sched.maxRuns > 0 ? `${sched.maxRuns} 次` : "∞"}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. 调度时间参数设置 (3 列配置) */}
+        <div className="setting-card" style={{ margin: 0, padding: 16 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+            <_MIcon name="clock" size={14} color="var(--accent)" />
+            <span>巡航周期与次数设定</span>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+            {/* 持续时间 */}
+            <div>
+              <label style={{ fontSize: 11, color: "var(--fg-3)", display: "block", marginBottom: 6 }}>
+                总持续时间 (分钟，0为不限时)
+              </label>
+              <input
+                type="number"
+                min="0"
+                className="twk-field mono"
+                style={{ width: "100%", padding: "5px 8px" }}
+                value={sched.durationMinutes ?? 60}
+                onChange={(e) => window.OMP_SCHEDULER?.updateConfig({ durationMinutes: parseInt(e.target.value, 10) || 0 })}
+                disabled={isRunning}
+              />
+              <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
+                {[15, 30, 60, 120, 0].map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    className="btn mini ghost"
+                    style={{ fontSize: 10, padding: "2px 6px" }}
+                    disabled={isRunning}
+                    onClick={() => window.OMP_SCHEDULER?.updateConfig({ durationMinutes: m })}
+                  >
+                    {m === 0 ? "不限时" : `${m}分`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 触发间隔 */}
+            <div>
+              <label style={{ fontSize: 11, color: "var(--fg-3)", display: "block", marginBottom: 6 }}>
+                触发间隔 (分钟)
+              </label>
+              <input
+                type="number"
+                min="1"
+                className="twk-field mono"
+                style={{ width: "100%", padding: "5px 8px" }}
+                value={sched.intervalMinutes ?? 5}
+                onChange={(e) => window.OMP_SCHEDULER?.updateConfig({ intervalMinutes: Math.max(1, parseInt(e.target.value, 10) || 1) })}
+                disabled={isRunning}
+              />
+              <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
+                {[1, 3, 5, 10, 15, 30].map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    className="btn mini ghost"
+                    style={{ fontSize: 10, padding: "2px 6px" }}
+                    disabled={isRunning}
+                    onClick={() => window.OMP_SCHEDULER?.updateConfig({ intervalMinutes: m })}
+                  >
+                    {m}分
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 触发次数 */}
+            <div>
+              <label style={{ fontSize: 11, color: "var(--fg-3)", display: "block", marginBottom: 6 }}>
+                触发次数 (次，0为不限制)
+              </label>
+              <input
+                type="number"
+                min="0"
+                className="twk-field mono"
+                style={{ width: "100%", padding: "5px 8px" }}
+                value={sched.maxRuns ?? 10}
+                onChange={(e) => window.OMP_SCHEDULER?.updateConfig({ maxRuns: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                disabled={isRunning}
+              />
+              <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
+                {[1, 3, 5, 10, 0].map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    className="btn mini ghost"
+                    style={{ fontSize: 10, padding: "2px 6px" }}
+                    disabled={isRunning}
+                    onClick={() => window.OMP_SCHEDULER?.updateConfig({ maxRuns: r })}
+                  >
+                    {r === 0 ? "不限次" : `${r}次`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. 核心：选择文件与拼接展示页面框 */}
+        <div className="setting-card" style={{ margin: 0, padding: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <_MIcon name="file" size={14} color="var(--accent)" />
+              <span style={{ fontWeight: 600, fontSize: 13 }}>触发内容文件列表（按顺序拼接）</span>
+              <span style={{ fontSize: 11, color: "var(--fg-4)" }}>
+                ({files.length} 个文件 · 约 {totalChars} 字符 · 无默认预设内容)
+              </span>
+            </div>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                className="btn primary mini"
+                style={{ gap: 4 }}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <_MIcon name="plus" size={12} />
+                <span>选择并追加文件...</span>
+              </button>
+              {files.length > 0 && (
+                <button
+                  type="button"
+                  className="btn mini ghost"
+                  style={{ gap: 4, color: "var(--fg-4)" }}
+                  onClick={() => window.OMP_SCHEDULER?.clearFiles()}
+                >
+                  <_MIcon name="trash" size={12} />
+                  <span>清空全部</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 拖拽放置与静态展示区域框 */}
+          <div
+            onDrop={handleDrop}
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={() => setIsDragging(false)}
+            style={{
+              border: `1.5px dashed ${isDragging ? "var(--accent)" : "var(--line)"}`,
+              borderRadius: 8,
+              padding: files.length === 0 ? "32px 16px" : "12px",
+              background: isDragging ? "color-mix(in oklab, var(--accent) 8%, var(--bg-card))" : "var(--bg-card)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              minHeight: 120,
+              transition: "border-color 0.2s, background 0.2s"
+            }}
+          >
+            {files.length === 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, color: "var(--fg-4)" }}>
+                <_MIcon name="folder" size={28} color="var(--line-hi)" />
+                <div style={{ fontSize: 12, fontWeight: 500 }}>暂未选择文件</div>
+                <div style={{ fontSize: 11, textAlign: "center", maxWidth: 360, lineHeight: 1.5 }}>
+                  点击右上角「选择并追加文件」或直接将代码、说明文档拖拽至此框中。<br />
+                  触发时将直接按先后顺序纯净拼接这几个文件的文本，安全注入当前活跃会话。
+                </div>
+              </div>
+            ) : (
+              files.map((file, idx) => (
+                <div
+                  key={file.id || idx}
+                  style={{
+                    background: "var(--bg-window)",
+                    border: "1px solid var(--line)",
+                    borderRadius: 6,
+                    padding: "8px 12px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span className="mono" style={{ fontSize: 11, color: "var(--accent)", fontWeight: 700 }}>#{idx + 1}</span>
+                      <_MIcon name="file" size={14} color="var(--fg-2)" />
+                      <span style={{ fontWeight: 600, fontSize: 12, color: "var(--fg)" }}>{file.name}</span>
+                      <span className="mono" style={{ fontSize: 10, color: "var(--fg-4)" }}>
+                        {window.OMP_SCHEDULER?.formatBytes(file.size)} · {file.lineCount} 行
+                      </span>
+                    </div>
+
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <button
+                        type="button"
+                        className="btn mini ghost"
+                        style={{ fontSize: 11, padding: "2px 8px" }}
+                        onClick={() => setPreviewFileId(previewFileId === file.id ? null : file.id)}
+                      >
+                        {previewFileId === file.id ? "收起预览" : "预览内容"}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn mini ghost"
+                        style={{ color: "var(--red)", padding: "2px 6px" }}
+                        title="移除此文件"
+                        onClick={() => window.OMP_SCHEDULER?.removeFile(file.id)}
+                      >
+                        <_MIcon name="close" size={11} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 展开内容预览框 */}
+                  {previewFileId === file.id && (
+                    <div style={{
+                      marginTop: 4,
+                      background: "color-mix(in oklab, var(--bg) 90%, black)",
+                      border: "1px solid var(--line)",
+                      borderRadius: 4,
+                      padding: 10,
+                      maxHeight: 180,
+                      overflowY: "auto"
+                    }}>
+                      <pre className="mono" style={{ margin: 0, fontSize: 11, color: "var(--fg-2)", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+                        {file.content || "(文件内容为空)"}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* 4. 执行记录实时日志 (最近 10 条) */}
+        {logs.length > 0 && (
+           <div className="setting-card" style={{ margin: 0, padding: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--fg-4)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+              <_MIcon name="sparkle" size={12} color="var(--accent)" />
+              <span>自动化触发执行记录</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 120, overflowY: "auto" }}>
+              {logs.slice(0, 10).map((log) => (
+                <div key={log.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}>
+                  <span className="mono" style={{ color: "var(--fg-4)", minWidth: 55 }}>{log.time}</span>
+                  <span style={{
+                    color: log.status === "success" ? "var(--green)" : log.status === "error" ? "var(--red)" : "var(--fg-3)"
+                  }}>
+                    {log.message}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
   function SettingsModal({ isOpen, onClose, tweaks, setTweak }) {
     const [activeTab, setActiveTab] = React.useState("twins"); // "twins" | "api" | "prompt" | "appearance" | "tools"
     const [toolsSubTab, setToolsSubTab] = React.useState("mcp"); // "mcp" | "skills"
@@ -404,6 +801,7 @@
       appearance: { title: "界面背景壁纸与外观", desc: "自定义桌面背景图片、透明度与视觉层次" },
       tools: { title: "MCP 扩展与 Skills 技能", desc: "管理外部上下文工具服务，避免多余注入打穿上下文与 TPM 配额" },
       stage: { title: "舞台动画与动图 (Animation Stage)", desc: "为右侧正方形专属舞台配置静态插画与工作中实时播放的动态视频/动图" },
+      scheduler: { title: "定时任务与自动巡航 (Autonomous Scheduler)", desc: "设定持续时间、间隔与次数，将所选文件的内容无缝拼接并继承活跃会话上下文自动触发" },
     };
     const currentTabInfo = tabHeaders[activeTab] || tabHeaders.twins;
 
@@ -470,6 +868,16 @@
               <span>MCP 与 Skills</span>
             </button>
 
+            <button
+              className={`models-nav-item ${activeTab === "scheduler" ? "active" : ""}`}
+              onClick={() => setActiveTab("scheduler")}
+            >
+              <_MIcon name="clock" size={14} color="var(--accent)" />
+              <span>定时任务与巡航</span>
+              {window.OMP_SCHEDULER?.getState?.().isRunning && (
+                <span style={{ marginLeft: "auto", width: 6, height: 6, borderRadius: "50%", background: "var(--green)", boxShadow: "0 0 6px var(--green)" }} />
+              )}
+            </button>
             <div style={{ flex: 1 }} />
             <button
               className="btn ghost mini"
@@ -1583,6 +1991,8 @@
                 </div>
               );
             })()}
+
+            {activeTab === "scheduler" && <SchedulerTabPane />}
 
             {/* Footer */}
             <div className="models-modal-footer">
