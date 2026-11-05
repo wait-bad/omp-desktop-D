@@ -34,6 +34,7 @@ const JSX_FILES = [
   "design/composer.jsx",
   "design/chrome.jsx",
   "design/panels.jsx",
+  "design/settings/qq-tab-pane.jsx",
   "design/settings/models-modal.jsx",
   "design/settings/history-modal.jsx",
   "app/use-bridge-snapshot.jsx",

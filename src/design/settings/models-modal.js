@@ -614,7 +614,8 @@
       appearance: { title: "\u754C\u9762\u80CC\u666F\u58C1\u7EB8\u4E0E\u5916\u89C2", desc: "\u81EA\u5B9A\u4E49\u684C\u9762\u80CC\u666F\u56FE\u7247\u3001\u900F\u660E\u5EA6\u4E0E\u89C6\u89C9\u5C42\u6B21" },
       tools: { title: "MCP \u6269\u5C55\u4E0E Skills \u6280\u80FD", desc: "\u7BA1\u7406\u5916\u90E8\u4E0A\u4E0B\u6587\u5DE5\u5177\u670D\u52A1\uFF0C\u907F\u514D\u591A\u4F59\u6CE8\u5165\u6253\u7A7F\u4E0A\u4E0B\u6587\u4E0E TPM \u914D\u989D" },
       stage: { title: "\u821E\u53F0\u52A8\u753B\u4E0E\u52A8\u56FE (Animation Stage)", desc: "\u4E3A\u53F3\u4FA7\u6B63\u65B9\u5F62\u4E13\u5C5E\u821E\u53F0\u914D\u7F6E\u9759\u6001\u63D2\u753B\u4E0E\u5DE5\u4F5C\u4E2D\u5B9E\u65F6\u64AD\u653E\u7684\u52A8\u6001\u89C6\u9891/\u52A8\u56FE" },
-      scheduler: { title: "\u5B9A\u65F6\u4EFB\u52A1\u4E0E\u81EA\u52A8\u5DE1\u822A (Autonomous Scheduler)", desc: "\u8BBE\u5B9A\u6301\u7EED\u65F6\u95F4\u3001\u95F4\u9694\u4E0E\u6B21\u6570\uFF0C\u5C06\u6240\u9009\u6587\u4EF6\u7684\u5185\u5BB9\u65E0\u7F1D\u62FC\u63A5\u5E76\u7EE7\u627F\u6D3B\u8DC3\u4F1A\u8BDD\u4E0A\u4E0B\u6587\u81EA\u52A8\u89E6\u53D1" }
+      scheduler: { title: "\u5B9A\u65F6\u4EFB\u52A1\u4E0E\u81EA\u52A8\u5DE1\u822A (Autonomous Scheduler)", desc: "\u8BBE\u5B9A\u6301\u7EED\u65F6\u95F4\u3001\u95F4\u9694\u4E0E\u6B21\u6570\uFF0C\u5C06\u6240\u9009\u6587\u4EF6\u7684\u5185\u5BB9\u65E0\u7F1D\u62FC\u63A5\u5E76\u7EE7\u627F\u6D3B\u8DC3\u4F1A\u8BDD\u4E0A\u4E0B\u6587\u81EA\u52A8\u89E6\u53D1" },
+      qq: { title: "\u57CE\u5821\u4E13\u7EBF\u4E2D\u67A2 (Cadice Sanctuary Hub)", desc: "\u7BA1\u7406\u53EF\u9EDB\u4E1D\u7684\u4E13\u5C5E\u5C0F\u7A9D\u670D\u52A1\u5668\u4E13\u7EBF\u3001\u53CD\u8106\u5F31\u901A\u4FE1\u7BA1\u9053\u3001\u5168\u53CC\u5DE5\u4E8B\u4EF6\u6D41\u4E0E\u4E09\u4EBA\u57FA\u5730\u901A\u4FE1" }
     };
     const currentTabInfo = tabHeaders[activeTab] || tabHeaders.twins;
     const handleSyncTwinDefaults = () => {
@@ -679,6 +680,15 @@
       /* @__PURE__ */ React.createElement(_MIcon, { name: "clock", size: 14, color: "var(--accent)" }),
       /* @__PURE__ */ React.createElement("span", null, "\u5B9A\u65F6\u4EFB\u52A1\u4E0E\u5DE1\u822A"),
       window.OMP_SCHEDULER?.getState?.().isRunning && /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", width: 6, height: 6, borderRadius: "50%", background: "var(--green)", boxShadow: "0 0 6px var(--green)" } })
+    ), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "models-nav-item " + (activeTab === "qq" ? "active" : ""),
+        onClick: () => setActiveTab("qq")
+      },
+      /* @__PURE__ */ React.createElement(_MIcon, { name: "live", size: 14, color: "#818cf8" }),
+      /* @__PURE__ */ React.createElement("span", null, "\u57CE\u5821\u4E13\u7EBF\u4E2D\u67A2"),
+      (window.CADICE_SANCTUARY_BRIDGE || window.CADICE_QQ_BRIDGE)?.getState?.().isConnected && /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", width: 6, height: 6, borderRadius: "50%", background: "#34d399", boxShadow: "0 0 6px #34d399" } })
     ), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }), /* @__PURE__ */ React.createElement(
       "button",
       {
@@ -1289,7 +1299,7 @@
         /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600 } }, opt.label),
         /* @__PURE__ */ React.createElement("span", { style: { fontSize: 9, opacity: 0.7 } }, opt.desc)
       )))));
-    })(), activeTab === "scheduler" && /* @__PURE__ */ React.createElement(SchedulerTabPane, null), /* @__PURE__ */ React.createElement("div", { className: "models-modal-footer" }, /* @__PURE__ */ React.createElement("button", { className: "btn ghost", onClick: onClose }, "\u5173\u95ED"), activeTab === "api" && /* @__PURE__ */ React.createElement("button", { className: "btn primary", onClick: handleSaveApi, disabled: saving }, saving ? "\u4FDD\u5B58\u4E2D..." : "\u4FDD\u5B58\u5E76\u5E94\u7528\u5230 OMP")))));
+    })(), activeTab === "scheduler" && /* @__PURE__ */ React.createElement(SchedulerTabPane, null), activeTab === "qq" && window.QQTabPane && /* @__PURE__ */ React.createElement(window.QQTabPane, null), /* @__PURE__ */ React.createElement("div", { className: "models-modal-footer" }, /* @__PURE__ */ React.createElement("button", { className: "btn ghost", onClick: onClose }, "\u5173\u95ED"), activeTab === "api" && /* @__PURE__ */ React.createElement("button", { className: "btn primary", onClick: handleSaveApi, disabled: saving }, saving ? "\u4FDD\u5B58\u4E2D..." : "\u4FDD\u5B58\u5E76\u5E94\u7528\u5230 OMP")))));
   }
   window.SettingsModal = SettingsModal;
   window.ModelsModal = SettingsModal;

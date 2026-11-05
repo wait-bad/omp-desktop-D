@@ -61,6 +61,7 @@ docs/superpowers/
 /test.mp4
 /release.mp4
 /omp-windows-x64.exe
+/omp-desktop.exe
 /src-tauri/target/debug/omp-desktop-running.exe
 /anima/
 /工作笔记*.md

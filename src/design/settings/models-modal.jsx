@@ -802,6 +802,7 @@
       tools: { title: "MCP 扩展与 Skills 技能", desc: "管理外部上下文工具服务，避免多余注入打穿上下文与 TPM 配额" },
       stage: { title: "舞台动画与动图 (Animation Stage)", desc: "为右侧正方形专属舞台配置静态插画与工作中实时播放的动态视频/动图" },
       scheduler: { title: "定时任务与自动巡航 (Autonomous Scheduler)", desc: "设定持续时间、间隔与次数，将所选文件的内容无缝拼接并继承活跃会话上下文自动触发" },
+      qq: { title: "城堡专线中枢 (Cadice Sanctuary Hub)", desc: "管理可黛丝的专属小窝服务器专线、反脆弱通信管道、全双工事件流与三人基地通信" },
     };
     const currentTabInfo = tabHeaders[activeTab] || tabHeaders.twins;
 
@@ -876,6 +877,16 @@
               <span>定时任务与巡航</span>
               {window.OMP_SCHEDULER?.getState?.().isRunning && (
                 <span style={{ marginLeft: "auto", width: 6, height: 6, borderRadius: "50%", background: "var(--green)", boxShadow: "0 0 6px var(--green)" }} />
+              )}
+            </button>
+            <button
+              className={"models-nav-item " + (activeTab === "qq" ? "active" : "")}
+              onClick={() => setActiveTab("qq")}
+            >
+              <_MIcon name="live" size={14} color="#818cf8" />
+              <span>城堡专线中枢</span>
+              {(window.CADICE_SANCTUARY_BRIDGE || window.CADICE_QQ_BRIDGE)?.getState?.().isConnected && (
+                <span style={{ marginLeft: "auto", width: 6, height: 6, borderRadius: "50%", background: "#34d399", boxShadow: "0 0 6px #34d399" }} />
               )}
             </button>
             <div style={{ flex: 1 }} />
@@ -1993,6 +2004,7 @@
             })()}
 
             {activeTab === "scheduler" && <SchedulerTabPane />}
+            {activeTab === "qq" && window.QQTabPane && <window.QQTabPane />}
 
             {/* Footer */}
             <div className="models-modal-footer">
