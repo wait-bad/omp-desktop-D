@@ -926,6 +926,37 @@
         else if (t.classList.contains("green")) win.isMaximized().then(m => m ? win.unmaximize() : win.maximize());
       });
     }
+
+    // ── Global external link interception ────────────────────────────────────
+    // Prevent web links from navigating away and destroying the React SPA.
+    // Always open external URLs in the user's default system browser.
+    document.addEventListener("click", e => {
+      const anchor = e.target.closest("a[href]");
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      if (!href) return;
+      if (/^(https?:|\/\/|mailto:)/i.test(href)) {
+        e.preventDefault();
+        e.stopPropagation();
+        const targetUrl = href.startsWith("//") ? "https:" + href : href;
+        if (window.__TAURI__ && window.__TAURI__.core) {
+          window.__TAURI__.core.invoke("open_url_external", { url: targetUrl }).catch(err => {
+            console.error("[live] open_url_external failed:", err);
+          });
+        } else {
+          window.open(targetUrl, "_blank", "noopener,noreferrer");
+        }
+      }
+    }, true);
+
+    // Keyboard back safeguard: Alt+Left to go back if history ever diverged
+    window.addEventListener("keydown", e => {
+      if (e.altKey && e.key === "ArrowLeft") {
+        if (window.history.length > 1) {
+          window.history.back();
+        }
+      }
+    });
   }
 
   // ── OMP_BRIDGE public API ─────────────────────────────────────────────────

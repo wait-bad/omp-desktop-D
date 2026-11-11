@@ -121,8 +121,22 @@
   line-height: 1.55; display: block; overflow-x: auto;
 }
 
-.md-content a  { color: var(--cyan); text-decoration: underline; text-underline-offset: 2px; }
+.md-content a {
+  color: var(--cyan);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  word-break: break-word;
+}
 .md-content a:hover { color: var(--fg); }
+.md-content a[href^="http://"]::after,
+.md-content a[href^="https://"]::after {
+  content: ' ↗';
+  font-size: 0.82em;
+  opacity: 0.75;
+  text-decoration: none;
+  display: inline-block;
+}
 
 .md-content table { border-collapse: collapse; width: 100%; margin: 0.6em 0; font-size: 0.9em; }
 .md-content th { background: var(--bg-elevated); font-weight: 600; }
@@ -146,4 +160,19 @@
 @keyframes caret-blink {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0; }
+}
+
+/* KaTeX math typesetting support */
+.md-content .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.5em 0;
+  margin: 0.75em 0;
+}
+.md-content .katex {
+  font-size: 1.05em;
+  text-rendering: auto;
+}
+.md-content .katex-error {
+  color: var(--rose, #ff6b6b);
 }

@@ -1,4 +1,4 @@
-/* ui/markdown.jsx — Markdown renderer using marked + highlight.js
+/* ui/markdown.jsx — Markdown renderer using marked + highlight.js + KaTeX
    when available; falls back to plain text with HTML escaping. */
 
 // ── Markdown renderer — uses marked + highlight.js when available ─────────

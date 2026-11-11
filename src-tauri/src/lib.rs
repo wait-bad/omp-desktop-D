@@ -483,7 +483,6 @@ pub fn run() {
         ])
         .setup(|app| {
             ensure_omp_onboarding_seeded();
-            // Devtools can still be opened manually or enabled if needed
             // The frontend activates this session on load via OMP_BRIDGE.activateSession("default").
             //
             // Failure handling: the bridge caches the spawn error keyed

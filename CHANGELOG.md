@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-11-11
+
+### Added
+- **城堡全双工通信中枢面板与双向发射事件流 (Cadice Sanctuary Hub)** — 在设置中心全新集成 VoceChat / Cadice Sanctuary 实时 SSE 长连接与双向消息收发面板（`qq-bridge.js`、`qq-tab-pane.jsx`），支持快捷服务器预设一键切换、自定义凭据登录、实时连通性监测与主动发射测试；放行局域网及通用 HTTP/WS CSP 策略。
+- **完整离线 KaTeX 数学公式渲染引擎 (Offline KaTeX Math Support)** — 本地内置 vendored KaTeX 运行时库、CSS 样式表以及全套 Web 字体资产（`src/katex.min.js`, `src/katex.min.css`, `src/fonts/`），实现 100% 离线自包含的高品质数学公式排版，完全兼容严格 CSP 策略，零 CDN 依赖。
+- **智能 Markdown LaTeX 语法解析扩展 (`src/marked-katex.js`)** — 针对 marked v12 编写专属极速语法扩展：
+  - 支持标准行内数学公式（`$...$` 与 `\(...\)`）；
+  - 支持块级单行与多行数学公式（`$$...$$` 与 `\[...\]`）；
+  - 支持代码块声明（````math` / ````latex` / ````katex`）直接作为 display 级数学公式渲染；
+  - 自动识别并严格隔离货币符号（如 `$50 and $100` 不会被误伤为数学公式）；
+  - 完善的流式未闭合容错与语法异常降级，杜绝非法 LaTeX 导致 React 组件树崩溃。
+
+### Fixed
+- **修复聊天消息中点击外部网址导致主应用窗口被劫持覆盖、无法退回聊天界面的严重缺陷 (External Link Interception)**：
+  - **渲染层**：为所有外部链接自动赋予 `target="_blank" rel="noopener noreferrer"` 以及外链标识（`↗`）和悬浮提示；
+  - **事件代理层**：在 `live.js` 注入全局捕获型外部链接点击拦截器，统一通过 Rust `open_url_external` 命令拉起用户系统默认浏览器打开，确保外壳软件永远稳稳留在聊天界面，会话上下文与历史状态毫发无损；同时挂载 `Alt + Left` 快捷键历史后退兜底。
+- **修复聊天界面中 LaTeX 数学公式渲染失效呈乱码符号的问题** — 接入 KaTeX 与 marked 统一渲染管线，并为 `.katex-display` 补充暗黑主题自适应及长公式横向平滑滚动样式，彻底解决数学公式排版混乱、符号散落不可读的缺陷。
+- **优化城堡通信中枢连接诊断与 SSE 重连状态提示** — 细化 HTTP 403/404 与网络异常错误引导文案，并在面板补充预设快捷按钮与重连状态反馈。
+
 ## [0.1.6] - 2026-11-05
 ### Added
 

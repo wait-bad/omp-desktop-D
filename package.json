@@ -10,10 +10,13 @@
     "prebuild": "node scripts/build-jsx.mjs",
     "build": "tauri build",
     "@tauri --build": "tauri build",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test:math": "node test-marked-katex-unit.js"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.28.2",
+    "katex": "^0.18.10",
+    "marked-katex-extension": "^5.1.13"
   }
 }

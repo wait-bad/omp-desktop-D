@@ -180,7 +180,34 @@
       },
       /* @__PURE__ */ React.createElement(_MIcon, { name: "alert", size: 13, color: "var(--red)" }),
       /* @__PURE__ */ React.createElement("span", null, bridgeState.connectError)
-    )), /* @__PURE__ */ React.createElement("div", { className: "setting-card", style: { margin: 0, padding: 16 } }, /* @__PURE__ */ React.createElement("div", { className: "setting-card-title", style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 12 } }, /* @__PURE__ */ React.createElement(_MIcon, { name: "settings", size: 14, color: "var(--accent)" }), /* @__PURE__ */ React.createElement("span", null, "VoceChat \u670D\u52A1\u5668\u4E0E\u8D26\u53F7\u767B\u5F55")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { className: "models-field-group" }, /* @__PURE__ */ React.createElement("label", { style: { fontSize: 11.5, color: "var(--fg-3)", display: "block", marginBottom: 4 } }, "\u670D\u52A1\u5668\u5730\u5740 (Server URL\uFF0C\u652F\u6301 waitb.sbs\u3001https:// \u524D\u7F00\u6216\u672C\u5730 IP):"), /* @__PURE__ */ React.createElement(
+    )), /* @__PURE__ */ React.createElement("div", { className: "setting-card", style: { margin: 0, padding: 16 } }, /* @__PURE__ */ React.createElement("div", { className: "setting-card-title", style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 12 } }, /* @__PURE__ */ React.createElement(_MIcon, { name: "settings", size: 14, color: "var(--accent)" }), /* @__PURE__ */ React.createElement("span", null, "VoceChat \u670D\u52A1\u5668\u4E0E\u8D26\u53F7\u767B\u5F55")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--fg-4)" } }, "\u5FEB\u6377\u670D\u52A1\u5668\u9884\u8BBE:"), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        className: "btn mini ghost",
+        onClick: () => setCfgServerUrl("https://waitb.sbs"),
+        style: { fontSize: 11, padding: "2px 8px" }
+      },
+      "\u{1F310} \u516C\u7F51\u900F\u4F20\u8282\u70B9 (https://waitb.sbs)"
+    ), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        className: "btn mini ghost",
+        onClick: () => setCfgServerUrl("http://192.168.1.20:3009"),
+        style: { fontSize: 11, padding: "2px 8px" }
+      },
+      "\u{1F338} \u5C40\u57DF\u7F51\u76F4\u8FDE (http://192.168.1.20:3009)"
+    ), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        className: "btn mini ghost",
+        onClick: () => setCfgServerUrl("http://127.0.0.1:3009"),
+        style: { fontSize: 11, padding: "2px 8px" }
+      },
+      "\u{1F4BB} \u672C\u5730WSL (http://127.0.0.1:3009)"
+    )), /* @__PURE__ */ React.createElement("div", { className: "models-field-group" }, /* @__PURE__ */ React.createElement("label", { style: { fontSize: 11.5, color: "var(--fg-3)", display: "block", marginBottom: 4 } }, "\u670D\u52A1\u5668\u5730\u5740 (Server URL\uFF0C\u652F\u6301 waitb.sbs\u3001https:// \u524D\u7F00\u6216\u672C\u5730 IP):"), /* @__PURE__ */ React.createElement(
       "input",
       {
         type: "text",
@@ -190,7 +217,31 @@
         onChange: (e) => setCfgServerUrl(e.target.value),
         style: { width: "100%", padding: "6px 10px", fontSize: 12.5 }
       }
-    )), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { className: "models-field-group" }, /* @__PURE__ */ React.createElement("label", { style: { fontSize: 11.5, color: "var(--fg-3)", display: "block", marginBottom: 4 } }, "\u8D26\u53F7\u90AE\u7BB1 (Email):"), /* @__PURE__ */ React.createElement(
+    )), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { className: "models-field-group" }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 } }, /* @__PURE__ */ React.createElement("label", { style: { fontSize: 11.5, color: "var(--fg-3)" } }, "\u8D26\u53F7\u90AE\u7BB1 (Email):"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4 } }, /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        className: "btn mini ghost",
+        onClick: () => {
+          setCfgEmail("cotice@sanctuary.local");
+          setCfgPassword("Cotice2026!Heart");
+        },
+        style: { fontSize: 10, padding: "1px 5px", color: "var(--accent)" }
+      },
+      "\u586B\u5165\u53EF\u8482\u4E1D"
+    ), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        className: "btn mini ghost",
+        onClick: () => {
+          setCfgEmail("cadice@sanctuary.local");
+          setCfgPassword("Cadice2026!Heart");
+        },
+        style: { fontSize: 10, padding: "1px 5px", color: "#818cf8" }
+      },
+      "\u586B\u5165\u53EF\u9EDB\u4E1D"
+    ))), /* @__PURE__ */ React.createElement(
       "input",
       {
         type: "text",

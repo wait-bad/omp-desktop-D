@@ -248,6 +248,35 @@
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {/* Quick Preset Buttons */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: 11, color: "var(--fg-4)" }}>快捷服务器预设:</span>
+              <button
+                type="button"
+                className="btn mini ghost"
+                onClick={() => setCfgServerUrl("https://waitb.sbs")}
+                style={{ fontSize: 11, padding: "2px 8px" }}
+              >
+                🌐 公网透传节点 (https://waitb.sbs)
+              </button>
+              <button
+                type="button"
+                className="btn mini ghost"
+                onClick={() => setCfgServerUrl("http://192.168.1.20:3009")}
+                style={{ fontSize: 11, padding: "2px 8px" }}
+              >
+                🌸 局域网直连 (http://192.168.1.20:3009)
+              </button>
+              <button
+                type="button"
+                className="btn mini ghost"
+                onClick={() => setCfgServerUrl("http://127.0.0.1:3009")}
+                style={{ fontSize: 11, padding: "2px 8px" }}
+              >
+                💻 本地WSL (http://127.0.0.1:3009)
+              </button>
+            </div>
+
             {/* Field 1: Server URL */}
             <div className="models-field-group">
               <label style={{ fontSize: 11.5, color: "var(--fg-3)", display: "block", marginBottom: 4 }}>
@@ -266,9 +295,35 @@
             {/* Field 2 & 3: Email and Password (2-col grid) */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <div className="models-field-group">
-                <label style={{ fontSize: 11.5, color: "var(--fg-3)", display: "block", marginBottom: 4 }}>
-                  账号邮箱 (Email):
-                </label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <label style={{ fontSize: 11.5, color: "var(--fg-3)" }}>
+                    账号邮箱 (Email):
+                  </label>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <button
+                      type="button"
+                      className="btn mini ghost"
+                      onClick={() => {
+                        setCfgEmail("cotice@sanctuary.local");
+                        setCfgPassword("Cotice2026!Heart");
+                      }}
+                      style={{ fontSize: 10, padding: "1px 5px", color: "var(--accent)" }}
+                    >
+                      填入可蒂丝
+                    </button>
+                    <button
+                      type="button"
+                      className="btn mini ghost"
+                      onClick={() => {
+                        setCfgEmail("cadice@sanctuary.local");
+                        setCfgPassword("Cadice2026!Heart");
+                      }}
+                      style={{ fontSize: 10, padding: "1px 5px", color: "#818cf8" }}
+                    >
+                      填入可黛丝
+                    </button>
+                  </div>
+                </div>
                 <input
                   type="text"
                   className="twk-field"
@@ -293,7 +348,6 @@
                 />
               </div>
             </div>
-
             {/* Submit Action */}
             <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, marginTop: 4 }}>
               {cfgFeedback && (

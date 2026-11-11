@@ -161,9 +161,11 @@
       if (!resp.ok) {
         let errDesc = `HTTP ${resp.status}`;
         if (resp.status === 401 || resp.status === 400) {
-          errDesc = "账号或密码错误 (请核对大小写)";
+          errDesc = "账号或密码错误 (请核对邮箱与大小写)";
+        } else if (resp.status === 403) {
+          errDesc = "访问被拒绝 (403 Forbidden，请核对透传反代配置或证书)";
         } else if (resp.status === 404) {
-          errDesc = "未找到登录服务，请确认服务器地址是否正确";
+          errDesc = "未找到登录服务 (404 Not Found)，请确认服务器地址是否正确";
         }
         try {
           const errData = await resp.json();
@@ -176,7 +178,7 @@
       state.token = data.token;
       if (data.user) {
         state.selfUid = data.user.uid;
-        state.selfNick = data.user.name || `用户${data.user.uid}`;
+        state.selfNick = data.user.name || `用户 #${data.user.uid}`;
         usersMap.set(Number(data.user.uid), state.selfNick);
       }
       state.connectError = null;
@@ -185,7 +187,11 @@
       return state.token;
     } catch (e) {
       console.error("[vocechat-bridge] login failed:", e);
-      state.connectError = `登录失败: ${e.message}`;
+      let userMsg = e.message;
+      if (e.message.includes("Failed to fetch") || e.name === "TypeError") {
+        userMsg = `无法连接至服务器 (${cleanUrl})，请检查网络连通性或域名证书`;
+      }
+      state.connectError = `登录失败: ${userMsg}`;
       state.token = null;
       notify();
       return null;
@@ -262,11 +268,15 @@
       };
 
       eventSource.onerror = (err) => {
+        console.warn("[vocechat-bridge] SSE stream status change / error:", err);
         if (eventSource && eventSource.readyState === EventSource.CLOSED) {
-          state.connectError = "SSE 链路重连中...";
+          state.connectError = "SSE 链路已断开，准备重连...";
           streamReady = false;
           notify();
           scheduleReconnect();
+        } else if (eventSource && eventSource.readyState === EventSource.CONNECTING) {
+          state.isReconnecting = true;
+          notify();
         }
       };
     } catch (e) {

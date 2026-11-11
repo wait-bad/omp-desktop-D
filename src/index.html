@@ -13,6 +13,8 @@
 
   <!-- Syntax highlighting theme (atom-one-dark) -->
   <link rel="stylesheet" href="highlight-theme.css" />
+  <!-- KaTeX math typesetting stylesheet -->
+  <link rel="stylesheet" href="katex.min.css" />
 </head>
 <body>
   <!-- Instant Video Splash Screen Layer (Paints immediately, before React/Babel loads) -->
@@ -207,24 +209,63 @@
   <!-- React 18 — served locally, precompiled, no CDN and NO Babel dependency -->
   <script src="react.development.js"></script>
   <script src="react-dom.development.js"></script>
-  <!-- Markdown + syntax highlighting — must load before design components -->
+  <!-- Markdown + syntax highlighting + KaTeX math typesetting — must load before design components -->
   <script src="marked.min.js"></script>
   <script src="highlight.min.js"></script>
+  <script src="katex.min.js"></script>
+  <script src="marked-katex.js"></script>
   <script>
-    // Wire marked v12 to use highlight.js for code blocks.
-    // Runs after DOMContentLoaded so both libs are parsed.
+    // Wire marked v12 to use highlight.js for code blocks and KaTeX for math.
     (function () {
-      if (!window.marked || !window.hljs) return;
+      if (!window.marked) return;
+
+      if (window.createMarkedKatexExtension) {
+        window.marked.use(window.createMarkedKatexExtension());
+      }
+
       window.marked.use({
         renderer: {
+          link(tokenOrHref, titleArg, textArg) {
+            let href;
+            let title;
+            let text;
+            if (typeof tokenOrHref === 'object' && tokenOrHref !== null) {
+              href = tokenOrHref.href;
+              title = tokenOrHref.title;
+              text = tokenOrHref.text;
+            } else {
+              href = tokenOrHref;
+              title = titleArg;
+              text = textArg;
+            }
+            const cleanHref = href || '#';
+            const isExternal = /^(https?:|\/\/|mailto:)/i.test(cleanHref);
+            const targetAttr = isExternal ? ' target="_blank" rel="noopener noreferrer"' : '';
+            const titleAttr = title ? ` title="${title}"` : (isExternal ? ' title="在系统默认浏览器中打开"' : '');
+            return `<a href="${cleanHref}"${targetAttr}${titleAttr}>${text}</a>`;
+          },
           code(text, lang) {
             const code     = text ?? '';
-            const language = (lang ?? '').split(/\s/)[0];
+            const language = (lang ?? '').split(/\s/)[0].toLowerCase();
+
+            // Render math code blocks directly via KaTeX if available
+            if ((language === 'math' || language === 'latex' || language === 'katex') && window.katex) {
+              try {
+                return window.katex.renderToString(code.trim(), {
+                  displayMode: true,
+                  throwOnError: false,
+                  output: 'htmlAndMathml'
+                }) + '\n';
+              } catch (_) {
+                // fall through to code block
+              }
+            }
+
             let highlighted;
             try {
-              highlighted = language && hljs.getLanguage(language)
+              highlighted = window.hljs && language && hljs.getLanguage(language)
                 ? hljs.highlight(code, { language }).value
-                : hljs.highlightAuto(code).value;
+                : (window.hljs ? hljs.highlightAuto(code).value : code);
             } catch (_) {
               highlighted = code
                 .replace(/&/g, '&amp;')
